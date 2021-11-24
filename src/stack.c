@@ -133,7 +133,7 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
     tc_cmac_setup(&cmac_state, uw_session.nwk_s_key, &key_sched);
     tc_cmac_update(&cmac_state, block_b0, sizeof(block_b0));
     tc_cmac_update(&cmac_state, msg, msg_len);
-	tc_cmac_final(cmac_mic, &cmac_state);
+    tc_cmac_final(cmac_mic, &cmac_state);
 
     memcpy(mic, cmac_mic, 4);
 }

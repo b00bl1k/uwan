@@ -4,13 +4,9 @@ project(uwan C)
 
 set(CMAKE_C_STANDARD 99)
 
-set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-include_directories(${INC_DIR})
-
 set(TINYCRYPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/tinycrypt)
-include_directories(${TINYCRYPT_DIR}/lib/include)
 set(TINYCRYPT_SRC
     ${TINYCRYPT_DIR}/lib/source/aes_encrypt.c
     ${TINYCRYPT_DIR}/lib/source/cmac_mode.c
@@ -22,8 +18,17 @@ set(LIB_SRC
     ${SRC_DIR}/stack.c)
 
 add_library(uwan STATIC ${LIB_SRC} ${TINYCRYPT_SRC})
+target_include_directories(uwan
+  PRIVATE
+    "${TINYCRYPT_DIR}/lib/include"
+  PUBLIC
+    $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 set_target_properties(uwan PROPERTIES OUTPUT_NAME uwan)
 
-enable_testing()
-
-add_subdirectory(tests)
+option(BUILD_TESTING "Build and run tests" ON)
+if (${BUILD_TESTING})
+	enable_testing()
+    add_subdirectory(tests)
+endif()

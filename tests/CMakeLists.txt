@@ -1,10 +1,9 @@
-add_executable(test_sx127x
-    test_sx127x.c
-    ../src/device/sx127x.c)
-add_test(NAME test_sx127x COMMAND test_sx127x)
+set(TESTS
+    sx127x
+    stack)
 
-add_executable(test_stack
-    test_stack.c
-    ../src/stack.c
-    ${TINYCRYPT_SRC})
-add_test(NAME test_stack COMMAND test_stack)
+foreach(test ${TESTS})
+    add_executable(test_${test} test_${test}.c)
+    target_link_libraries(test_${test} uwan)
+    add_test(NAME test_${test} COMMAND $<TARGET_FILE:test_${test}>)
+endforeach()
