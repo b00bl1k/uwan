@@ -144,7 +144,6 @@ int main()
     assert(sx127x_dev.init(&my_hal));
 
     sx127x_dev.set_frequency(868900000);
-    sx127x_dev.set_inverted_iq(false);
     sx127x_dev.set_power(14);
     sx127x_dev.setup(UWAN_SF_12, UWAN_BW_125, UWAN_CR_4_5);
     sx127x_dev.tx(payload, sizeof(payload));

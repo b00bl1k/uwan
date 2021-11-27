@@ -22,12 +22,15 @@
  * SOFTWARE.
  */
 
+#include <stddef.h>
 #include <string.h>
 
 #include <tinycrypt/aes.h>
 #include <tinycrypt/cmac_mode.h>
 
 #include <uwan/stack.h>
+
+#define BYTES_FOR_BITS(bits) ((bits % 8) ? (bits / 8 + 1) : (bits / 8))
 
 #define MAJOR_LORAWAN_R1 0x0
 
@@ -48,6 +51,8 @@
 
 #define AES_BLOCK_SIZE 16
 
+#define MAX_CHANNELS 16
+
 struct node_session {
     uint32_t dev_addr;
     uint16_t f_cnt_up;
@@ -56,15 +61,52 @@ struct node_session {
     uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
 };
 
-static struct node_session uw_session;
+struct node_channel {
+    uint32_t frequency; // 0 - is disabled
+    enum uwan_dr dr_min;
+    enum uwan_dr dr_max;
+};
+
+struct node_dr {
+    enum uwan_sf sf;
+    enum uwan_bw bw;
+};
+
+/* DR0..DR5 is enough for EU868 and RU864 */
+static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
+    {UWAN_SF_12, UWAN_BW_125},
+    {UWAN_SF_11, UWAN_BW_125},
+    {UWAN_SF_10, UWAN_BW_125},
+    {UWAN_SF_9, UWAN_BW_125},
+    {UWAN_SF_8, UWAN_BW_125},
+    {UWAN_SF_7, UWAN_BW_125},
+};
 
 static const struct radio_dev *uw_radio;
-
+static struct node_session uw_session;
 static uint8_t uw_frame[256];
 
-static struct tc_aes_key_sched_struct key_sched;
+/* Channel plan variables */
+static uint8_t uw_channels_mask[BYTES_FOR_BITS(MAX_CHANNELS)];
+static struct node_channel uw_channels[MAX_CHANNELS];
+static uint32_t uw_rx2_frequency;
+static enum uwan_dr uw_rx2_dr;
 
+/* Encryption variables */
+static struct tc_aes_key_sched_struct key_sched;
 static struct tc_cmac_struct cmac_state;
+
+static const struct node_channel *get_next_channel()
+{
+    // TODO improve this
+    for (int i = 0; i < MAX_CHANNELS; i++)
+    {
+        if (uw_channels_mask[i / 8] & (1 << (i % 8)))
+            return &uw_channels[i];
+    }
+
+    return NULL;
+}
 
 static void encrypt_payload(uint8_t dir, uint8_t *buf, uint8_t size)
 {
@@ -141,6 +183,8 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
 void uwan_init(const struct radio_dev *radio)
 {
     uw_radio = radio;
+    // disable all channels
+    memset(uw_channels_mask, 0, sizeof(uw_channels_mask));
 }
 
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
@@ -154,11 +198,59 @@ void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
     memcpy(uw_session.app_s_key, app_s_key, UWAN_APP_S_KEY_SIZE);
 }
 
-void uwan_send_frame(uint8_t f_port, const uint8_t *payload, uint8_t pld_len,
-    bool confirm)
+enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
+{
+    if (index >= MAX_CHANNELS)
+        return UWAN_ERR_CHANNEL;
+
+    if (enable)
+        uw_channels_mask[index / 8] |= 1 << (index % 8);
+    else
+        uw_channels_mask[index / 8] &= ~(1 << (index % 8));
+
+    return UWAN_ERR_NO;
+}
+
+enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
+    enum uwan_dr dr_min, enum uwan_dr dr_max)
+{
+    if (index >= MAX_CHANNELS)
+        return UWAN_ERR_CHANNEL;
+    if (dr_min > dr_max || dr_min < UWAN_DR_0 || dr_max >= UWAN_DR_COUNT)
+        return UWAN_ERR_DATARATE;
+
+    uw_channels[index].frequency = frequency;
+    uw_channels[index].dr_min = dr_min;
+    uw_channels[index].dr_max = dr_max;
+    uw_channels_mask[index / 8] |= 1 << (index % 8);
+
+    return UWAN_ERR_NO;
+}
+
+enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
+{
+    if (dr < UWAN_DR_0 || dr >= UWAN_DR_COUNT)
+        return UWAN_ERR_DATARATE;
+
+    uw_rx2_frequency = frequency;
+    uw_rx2_dr = dr;
+
+    return UWAN_ERR_NO;
+}
+
+enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
+    uint8_t pld_len, bool confirm)
 {
     uint8_t dir = 0; // uplink
     uint8_t offset = 0;
+
+    const struct node_channel *ch = get_next_channel();
+    if (ch == NULL)
+        return UWAN_ERR_CHANNEL;
+
+    const struct node_dr *dr = &uw_dr_table[ch->dr_max];
+    uw_radio->set_frequency(ch->frequency);
+    uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
 
     uw_frame[offset++] = (MTYPE_UNCONF_DATA_UP << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
     uw_frame[offset++] = uw_session.dev_addr & 0xff;
@@ -180,4 +272,10 @@ void uwan_send_frame(uint8_t f_port, const uint8_t *payload, uint8_t pld_len,
     offset += 4;
 
     uw_radio->tx(uw_frame, offset);
+    return UWAN_ERR_NO;
+}
+
+void uwan_handle_dio(int dio_num)
+{
+    uint8_t flags = uw_radio->handle_dio(dio_num);
 }

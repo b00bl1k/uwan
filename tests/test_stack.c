@@ -28,14 +28,32 @@
 
 static uint8_t tx_frame[256];
 static uint8_t tx_frame_size;
+static uint32_t radio_freq;
+static enum uwan_sf radio_sf;
+static enum uwan_bw radio_bw;
+static enum uwan_cr radio_cr;
 
-static bool radio_tx(const uint8_t *buf, uint8_t len)
+void radio_set_frequency(uint32_t frequency)
+{
+    radio_freq = frequency;
+}
+
+void radio_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
+{
+    radio_sf = sf;
+    radio_bw = bw;
+    radio_cr = cr;
+}
+
+static void radio_tx(const uint8_t *buf, uint8_t len)
 {
     memcpy(tx_frame, buf, len);
     tx_frame_size = len;
 }
 
 static const struct radio_dev radio = {
+    .set_frequency = radio_set_frequency,
+    .setup = radio_setup,
     .tx = radio_tx,
 };
 
@@ -59,6 +77,8 @@ static const uint8_t tx_payload[] = {
 
 int main()
 {
+    enum uwan_errs result;
+
     const uint32_t dev_addr = 0x01020304;
     const uint16_t f_cnt_up = 2;
     const uint16_t f_cnt_down = 2;
@@ -67,14 +87,25 @@ int main()
 
     uwan_init(&radio);
     uwan_set_session(dev_addr, f_cnt_up, f_cnt_down, nwkskey, appskey);
-    uwan_send_frame(f_port, tx_payload, sizeof(tx_payload), confirm);
+    result = uwan_send_frame(f_port, tx_payload, sizeof(tx_payload), confirm);
+    assert(result == UWAN_ERR_CHANNEL);
 
-    uint8_t mic[] = {0xbf, 0x26, 0x16, 0x0a};
+    result = uwan_set_channel(1, 868800000, UWAN_DR_0, UWAN_DR_5);
+    assert(result == UWAN_ERR_NO);
+    result = uwan_send_frame(f_port, tx_payload, sizeof(tx_payload), confirm);
+    assert(result == UWAN_ERR_NO);
+
+    assert(radio_freq == 868800000);
+    assert(radio_bw == UWAN_BW_125);
+    assert(radio_sf == UWAN_SF_7);
+    assert(radio_cr == UWAN_CR_4_5);
+
+    const uint8_t mic[] = {0xbf, 0x26, 0x16, 0x0a};
     for (int i = 0; i < sizeof(mic); i++) {
         assert(mic[i] == tx_frame[tx_frame_size - 4 + i]);
     }
 
-    uint8_t enc_payload[] = {0xb8, 0x66, 0x87, 0x5b};
+    const uint8_t enc_payload[] = {0xb8, 0x66, 0x87, 0x5b};
     for (int i = 0; i < sizeof(enc_payload); i++) {
         assert(enc_payload[i] == tx_frame[tx_frame_size - 8 + i]);
     }

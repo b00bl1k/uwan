@@ -56,22 +56,44 @@ enum uwan_cr {
     UWAN_CR_4_8,
 };
 
-struct radio_hal
-{
+enum uwan_dr {
+    UWAN_DR_0,
+    UWAN_DR_1,
+    UWAN_DR_2,
+    UWAN_DR_3,
+    UWAN_DR_4,
+    UWAN_DR_5,
+    // other datarates not support yet
+    UWAN_DR_COUNT,
+};
+
+enum uwan_errs {
+    UWAN_ERR_NO,
+    UWAN_ERR_DATARATE,
+    UWAN_ERR_CHANNEL,
+};
+
+enum radio_irq_flags {
+    RADIO_IRQF_RX_TIMEOUT = 0x1,
+    RADIO_IRQF_RX_DONE = 0x2,
+    RADIO_IRQF_TX_DONE = 0x4,
+};
+
+struct radio_hal {
     uint8_t (*spi_xfer)(uint8_t data);
     void (*reset)(bool enable);
     void (*select)(bool enable);
     void (*delay_us)(uint32_t us);
 };
 
-struct radio_dev
-{
+struct radio_dev {
     bool (*init)(const struct radio_hal *hal);
     void (*set_frequency)(uint32_t frequency);
     bool (*set_power)(int8_t power);
-    void (*set_inverted_iq)(bool inverted_iq);
     void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
-    bool (*tx)(const uint8_t *buf, uint8_t len);
+    void (*tx)(const uint8_t *buf, uint8_t len);
+    void (*rx)(bool continous);
+    uint8_t (*handle_dio)(int dio_num);
 };
 
 void uwan_init(const struct radio_dev *radio);
@@ -79,7 +101,36 @@ void uwan_init(const struct radio_dev *radio);
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
 
-void uwan_send_frame(uint8_t f_port, const uint8_t *payload, uint8_t pld_len,
-    bool confirm);
+/**
+ * \brief Enable or disable channel
+ *
+ * \param index index of channel in range 0..(MAX_CHANNELS - 1)
+ * \param enable state of channel. true for enable, false for disable
+ */
+enum uwan_errs uwan_enable_channel(uint8_t index, bool enable);
+
+/**
+ * \brief Set and enable channel
+ *
+ * \param index index of channel in range 0..(MAX_CHANNELS - 1)
+ * \param frequency actual channel frequency in Hz
+ * \param dr_min minimum data rate
+ * \param dr_max maximum data rate
+ */
+enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
+    enum uwan_dr dr_min, enum uwan_dr dr_max);
+
+/**
+ * \brief Setup RX2 window
+ *
+ * \param frequency frequency in Hz
+ * \param dr data rate
+ */
+enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
+
+enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
+    uint8_t pld_len, bool confirm);
+
+void uwan_handle_dio(int dio_num);
 
 #endif /* ~__UWAN_STACK_H__ */

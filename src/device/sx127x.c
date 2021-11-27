@@ -28,9 +28,10 @@
 static bool sx127x_init(const struct radio_hal *r_hal);
 static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
-static void sx127x_set_inverted_iq(bool inverted_iq);
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
-static bool sx127x_tx(const uint8_t *buf, uint8_t len);
+static void sx127x_tx(const uint8_t *buf, uint8_t len);
+static void sx127x_rx(bool continous);
+static uint8_t sx127x_handle_dio(int dio_num);
 
 /* lookup table for spreading factor */
 static const uint8_t sf_table[] = {
@@ -66,9 +67,10 @@ const struct radio_dev sx127x_dev = {
     .init = sx127x_init,
     .set_frequency = sx127x_set_freq,
     .set_power = sx127x_set_power,
-    .set_inverted_iq = sx127x_set_inverted_iq,
     .setup = sx127x_setup,
     .tx = sx127x_tx,
+    .rx = sx127x_rx,
+    .handle_dio = sx127x_handle_dio,
 };
 
 static void set_op_mode(uint8_t mode)
@@ -119,6 +121,20 @@ static void lora_set_modem_conf3(bool low_dr_opti, bool agc_auto_on)
     radio_write_reg(hal, SX127X_REG_LR_MODEM_CONFIG3, conf);
 }
 
+static void set_inverted_iq(bool inverted_iq)
+{
+    if (inverted_iq)
+    {
+        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ, 0x66);
+        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ2, INVERT_IQ2_ON);
+    }
+    else
+    {
+        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ, 0x27);
+        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ2, INVERT_IQ2_OFF);
+    }
+}
+
 static bool sx127x_init(const struct radio_hal *r_hal)
 {
     hal = r_hal;
@@ -138,6 +154,7 @@ static bool sx127x_init(const struct radio_hal *r_hal)
 
     radio_write_reg(hal, SX127X_REG_LR_SYNC_WORD, LORAWAN_SYNC_WORD);
     radio_write_reg(hal, SX127X_REG_PA_RAMP, PA_RAMP_PA_RAMP_50US);
+    radio_write_reg(hal, SX127X_REG_LNA, LNA_LNA_GAIN_G1 | LNA_LNA_BOOST_HF_BOOST);
 
     return true;
 }
@@ -171,25 +188,13 @@ bool sx127x_set_power(int8_t power)
     return true;
 }
 
-static void sx127x_set_inverted_iq(bool inverted_iq)
-{
-    if (inverted_iq)
-    {
-        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ, 0x66);
-        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ2, INVERT_IQ2_ON);
-    }
-    else
-    {
-        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ, 0x27);
-        radio_write_reg(hal, SX127X_REG_LR_INVERT_IQ2, INVERT_IQ2_OFF);
-    }
-}
-
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
 {
     const bool imp_header = false;
     const bool crc_on = true;
-    const uint16_t symb_timeout = 0x64;
+    uint16_t symb_timeout;
+
+    symb_timeout = (sf >= UWAN_SF_10) ? 0x05 : 0x08;
 
     set_op_mode(OP_MODE_MODE_STDBY);
 
@@ -198,18 +203,76 @@ static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
     radio_write_reg(hal, SX127X_REG_LR_SYMB_TIMEOUT_LSB, symb_timeout & 0xff);
 
     bool low_dr_opti = (sf >= UWAN_SF_11);
-    lora_set_modem_conf3(low_dr_opti, false);
+    lora_set_modem_conf3(low_dr_opti, true);
 }
 
-static bool sx127x_tx(const uint8_t *buf, uint8_t len)
+static void sx127x_tx(const uint8_t *buf, uint8_t len)
 {
+    set_inverted_iq(false);
+
     radio_write_reg(hal, SX127X_REG_LR_FIFO_TX_BASE_ADDR, 0);
     radio_write_reg(hal, SX127X_REG_LR_FIFO_ADDR_PTR, 0);
 
     radio_write_array(hal, SX127X_REG_FIFO, buf, len);
     radio_write_reg(hal, SX127X_REG_LR_PAYLOAD_LENGTH, len);
 
-    set_op_mode(OP_MODE_MODE_TX);
+    uint8_t mask = IRQ_FLAGS_MASK_TX_DONE_SET;
+    radio_write_reg(hal, SX127X_REG_LR_IRQ_FLAGS_MASK, ~mask);
+    radio_write_reg(hal, SX127X_REG_DIO_MAPPING1, DIO_MAPPING1_DIO0_LR_TX_DONE);
 
-    return true;
+    set_op_mode(OP_MODE_MODE_TX);
+}
+
+static void sx127x_rx(bool continous)
+{
+    set_inverted_iq(true);
+
+    radio_write_reg(hal, SX127X_REG_LR_FIFO_TX_BASE_ADDR, 0);
+    radio_write_reg(hal, SX127X_REG_LR_FIFO_ADDR_PTR, 0);
+    radio_write_reg(hal, SX127X_REG_LR_MAX_PAYLOAD_LENGTH, 0x40);
+
+    // 500kHz Rx optimization
+    radio_write_reg(hal, 0x36, 0x02);
+    radio_write_reg(hal, 0x3a, 0x64);
+
+    uint8_t mask = IRQ_FLAGS_MASK_RX_TIMEOUT_SET | IRQ_FLAGS_MASK_RX_DONE_SET |
+        IRQ_FLAGS_MASK_PAYLOAD_CRC_ERROR_SET;
+    radio_write_reg(hal, SX127X_REG_LR_IRQ_FLAGS_MASK, ~mask);
+    radio_write_reg(hal, SX127X_REG_DIO_MAPPING1, DIO_MAPPING1_DIO0_LR_RX_DONE
+        | DIO_MAPPING1_DIO1_LR_RX_TIMEOUT
+        | DIO_MAPPING1_DIO3_LR_PAYLOAD_CRC_ERROR);
+
+    if (continous)
+        set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
+    else
+        set_op_mode(OP_MODE_MODE_RX_SINGLE);
+}
+
+static uint8_t sx127x_handle_dio(int dio_num)
+{
+    uint8_t result = 0;
+    uint8_t flags = radio_read_reg(hal, SX127X_REG_LR_IRQ_FLAGS);
+    uint8_t cflags = 0;
+
+    if (flags & IRQ_FLAGS_TX_DONE_SET)
+    {
+        cflags |= IRQ_FLAGS_TX_DONE_SET;
+        result |= RADIO_IRQF_TX_DONE;
+    }
+
+    if (flags & IRQ_FLAGS_RX_DONE_SET)
+    {
+        cflags |= IRQ_FLAGS_RX_DONE_SET;
+        result |= RADIO_IRQF_RX_DONE;
+    }
+
+    if (flags & IRQ_FLAGS_RX_TIMEOUT_SET)
+    {
+        cflags |= IRQ_FLAGS_RX_TIMEOUT_SET;
+        result |= RADIO_IRQF_RX_TIMEOUT;
+    }
+
+    radio_write_reg(hal, SX127X_REG_LR_IRQ_FLAGS, cflags);
+
+    return result;
 }
