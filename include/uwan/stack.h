@@ -69,8 +69,14 @@ enum uwan_dr {
 
 enum uwan_errs {
     UWAN_ERR_NO,
+    UWAN_ERR_STATE,
     UWAN_ERR_DATARATE,
     UWAN_ERR_CHANNEL,
+};
+
+enum uwan_timer_ids {
+    UWAN_TIMER_RX1,
+    UWAN_TIMER_RX2,
 };
 
 enum radio_irq_flags {
@@ -96,7 +102,13 @@ struct radio_dev {
     uint8_t (*handle_dio)(int dio_num);
 };
 
-void uwan_init(const struct radio_dev *radio);
+struct stack_hal {
+    void (*start_timer)(enum uwan_timer_ids timer_id, uint32_t timeout_ms);
+    void (*stop_timer)(enum uwan_timer_ids timer_id);
+    void (*downlink_callback)(int result);
+};
+
+void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
 
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
@@ -128,9 +140,25 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
  */
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 
+/**
+ * \brief Send uplink
+ *
+ * \param f_port application-specific port field (1..223)
+ * \param payload pointer to payload
+ * \param pld_len size of payload
+ * \param confirm send uplink with confirmation if true
+ */
 enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uint8_t pld_len, bool confirm);
 
-void uwan_handle_dio(int dio_num);
+/**
+ * \brief Radio DIO callback
+ */
+void uwan_radio_dio_callback(int dio_num);
+
+/**
+ * \brief Timer callback
+ */
+void uwan_timer_callback(enum uwan_timer_ids timer_id);
 
 #endif /* ~__UWAN_STACK_H__ */

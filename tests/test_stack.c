@@ -51,10 +51,22 @@ static void radio_tx(const uint8_t *buf, uint8_t len)
     tx_frame_size = len;
 }
 
+static void radio_rx(bool continuous)
+{
+}
+
+static uint8_t radio_handle_dio(int dio_num)
+{
+    uint8_t irq = 0;
+    return irq;
+}
+
 static const struct radio_dev radio = {
     .set_frequency = radio_set_frequency,
     .setup = radio_setup,
     .tx = radio_tx,
+    .rx = radio_rx,
+    .handle_dio = radio_handle_dio,
 };
 
 static const uint8_t nwkskey[] = {
@@ -75,6 +87,27 @@ static const uint8_t tx_payload[] = {
     0x00, 0x01, 0x02, 0x03,
 };
 
+void app_start_timer(enum uwan_timer_ids timer_id, uint32_t timeout_ms)
+{
+
+}
+
+void app_stop_timer(enum uwan_timer_ids timer_id)
+{
+
+}
+
+void app_downlink_callback(int result)
+{
+
+}
+
+static const struct stack_hal app_hal = {
+    .start_timer = app_start_timer,
+    .stop_timer = app_stop_timer,
+    .downlink_callback = app_downlink_callback,
+};
+
 int main()
 {
     enum uwan_errs result;
@@ -85,7 +118,7 @@ int main()
     const uint8_t f_port = 4;
     const bool confirm = false;
 
-    uwan_init(&radio);
+    uwan_init(&radio, &app_hal);
     uwan_set_session(dev_addr, f_cnt_up, f_cnt_down, nwkskey, appskey);
     result = uwan_send_frame(f_port, tx_payload, sizeof(tx_payload), confirm);
     assert(result == UWAN_ERR_CHANNEL);
@@ -109,6 +142,8 @@ int main()
     for (int i = 0; i < sizeof(enc_payload); i++) {
         assert(enc_payload[i] == tx_frame[tx_frame_size - 8 + i]);
     }
+
+    // TODO test rx
 
     return 0;
 }
