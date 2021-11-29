@@ -53,6 +53,11 @@
 
 #define MAX_CHANNELS 16
 
+#define RECEIVE_DELAY1 1000
+#define RECEIVE_DELAY2 2000
+#define JOIN_ACCEPT_DELAY1 5000
+#define JOIN_ACCEPT_DELAY2 6000
+
 enum stack_states {
     UWAN_STATE_NOT_INIT,
     UWAN_STATE_IDLE,
@@ -62,6 +67,9 @@ enum stack_states {
 };
 
 struct node_session {
+    uint8_t dev_eui[UWAN_DEV_EUI_SIZE];
+    uint8_t app_eui[UWAN_APP_EUI_SIZE];
+    uint8_t app_key[UWAN_APP_KEY_SIZE];
     uint32_t dev_addr;
     uint16_t f_cnt_up;
     uint16_t f_cnt_down;
@@ -95,6 +103,8 @@ static const struct stack_hal *uw_stack_hal;
 static struct node_session uw_session;
 static uint8_t uw_frame[256];
 static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
+static uint32_t uw_rx1_delay;
+static uint32_t uw_rx2_delay;
 
 /* Channel plan variables */
 static uint8_t uw_channels_mask[BYTES_FOR_BITS(MAX_CHANNELS)];
@@ -159,31 +169,36 @@ static void encrypt_payload(uint8_t dir, uint8_t *buf, uint8_t size)
 }
 
 static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
-    uint8_t dir)
+    const uint8_t *key, uint8_t dir, bool b0)
 {
-    uint8_t pos = 0;
-    uint8_t block_b0[AES_BLOCK_SIZE];
     uint8_t cmac_mic[AES_BLOCK_SIZE];
 
-    block_b0[pos++] = 0x49;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = dir;
-    block_b0[pos++] = uw_session.dev_addr & 0xff;
-    block_b0[pos++] = (uw_session.dev_addr >> 8) & 0xff;
-    block_b0[pos++] = (uw_session.dev_addr >> 16) & 0xff;
-    block_b0[pos++] = (uw_session.dev_addr >> 24) & 0xff;
-    block_b0[pos++] = uw_session.f_cnt_up & 0xff;
-    block_b0[pos++] = (uw_session.f_cnt_up >> 8) & 0xff;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = 0x00;
-    block_b0[pos++] = msg_len;
+    tc_cmac_setup(&cmac_state, key, &key_sched);
 
-    tc_cmac_setup(&cmac_state, uw_session.nwk_s_key, &key_sched);
-    tc_cmac_update(&cmac_state, block_b0, sizeof(block_b0));
+    if (b0) {
+        uint8_t block_b0[AES_BLOCK_SIZE];
+        uint8_t pos = 0;
+
+        block_b0[pos++] = 0x49;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = dir;
+        block_b0[pos++] = uw_session.dev_addr & 0xff;
+        block_b0[pos++] = (uw_session.dev_addr >> 8) & 0xff;
+        block_b0[pos++] = (uw_session.dev_addr >> 16) & 0xff;
+        block_b0[pos++] = (uw_session.dev_addr >> 24) & 0xff;
+        block_b0[pos++] = uw_session.f_cnt_up & 0xff;
+        block_b0[pos++] = (uw_session.f_cnt_up >> 8) & 0xff;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = 0x00;
+        block_b0[pos++] = msg_len;
+
+        tc_cmac_update(&cmac_state, block_b0, sizeof(block_b0));
+    }
+
     tc_cmac_update(&cmac_state, msg, msg_len);
     tc_cmac_final(cmac_mic, &cmac_state);
 
@@ -197,6 +212,14 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack)
     uw_stack_hal = stack;
     // disable all channels
     memset(uw_channels_mask, 0, sizeof(uw_channels_mask));
+}
+
+void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
+    const uint8_t *app_key)
+{
+    memcpy(uw_session.dev_eui, dev_eui, UWAN_DEV_EUI_SIZE);
+    memcpy(uw_session.app_eui, app_eui, UWAN_APP_EUI_SIZE);
+    memcpy(uw_session.app_key, app_key, UWAN_APP_KEY_SIZE);
 }
 
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
@@ -250,10 +273,9 @@ enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
     return UWAN_ERR_NO;
 }
 
-enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
-    uint8_t pld_len, bool confirm)
+enum uwan_errs uwan_join(uint16_t dev_nonce)
 {
-    uint8_t dir = 0; // uplink
+    const uint8_t dir = 0;
     uint8_t offset = 0;
 
     if (uw_state != UWAN_STATE_IDLE)
@@ -267,7 +289,48 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_radio->set_frequency(ch->frequency);
     uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
 
-    uw_frame[offset++] = (MTYPE_UNCONF_DATA_UP << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
+    uw_frame[offset++] = (MTYPE_JOIN_REQUEST << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
+
+    memcpy(&uw_frame[offset], uw_session.app_eui, UWAN_APP_EUI_SIZE);
+    offset += UWAN_APP_EUI_SIZE;
+    for (uint8_t i = UWAN_DEV_EUI_SIZE; i > 0; i--)
+        uw_frame[offset++] = uw_session.dev_eui[i - 1];
+
+    uw_frame[offset++] = dev_nonce & 0xff;
+    uw_frame[offset++] = (dev_nonce >> 8) & 0xff;
+
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key, dir, false);
+    offset += 4;
+
+    uw_rx1_delay = JOIN_ACCEPT_DELAY1;
+    uw_rx2_delay = JOIN_ACCEPT_DELAY2;
+    uw_state = UWAN_STATE_TX;
+    uw_radio->tx(uw_frame, offset);
+
+    return UWAN_ERR_NO;
+}
+
+enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
+    uint8_t pld_len, bool confirm)
+{
+    const uint8_t dir = 0; // uplink
+    uint8_t offset = 0;
+
+    if (uw_state != UWAN_STATE_IDLE)
+        return UWAN_ERR_STATE;
+
+    const struct node_channel *ch = get_next_channel();
+    if (ch == NULL)
+        return UWAN_ERR_CHANNEL;
+
+    const struct node_dr *dr = &uw_dr_table[ch->dr_max];
+    uw_radio->set_frequency(ch->frequency);
+    uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
+
+    if (confirm)
+        uw_frame[offset++] = (MTYPE_CONF_DATA_UP << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
+    else
+        uw_frame[offset++] = (MTYPE_UNCONF_DATA_UP << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
     uw_frame[offset++] = uw_session.dev_addr & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 8) & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 16) & 0xff;
@@ -283,9 +346,11 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     encrypt_payload(dir, &uw_frame[offset], pld_len);
     offset += pld_len;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, dir);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key, dir, true);
     offset += 4;
 
+    uw_rx1_delay = RECEIVE_DELAY1;
+    uw_rx2_delay = RECEIVE_DELAY2;
     uw_state = UWAN_STATE_TX;
     uw_radio->tx(uw_frame, offset);
 
@@ -303,8 +368,8 @@ void uwan_radio_dio_callback(int dio_num)
     {
     case UWAN_STATE_TX:
         uw_state = UWAN_STATE_RX1;
-        uw_stack_hal->start_timer(UWAN_TIMER_RX1, 1000);
-        uw_stack_hal->start_timer(UWAN_TIMER_RX2, 2000);
+        uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
+        uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
         break;
 
     case UWAN_STATE_RX1:

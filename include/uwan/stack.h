@@ -28,6 +28,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define UWAN_DEV_EUI_SIZE 8
+#define UWAN_APP_EUI_SIZE 8
+#define UWAN_APP_KEY_SIZE 16
 #define UWAN_NWK_S_KEY_SIZE 16
 #define UWAN_APP_S_KEY_SIZE 16
 
@@ -110,6 +113,9 @@ struct stack_hal {
 
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
 
+void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
+    const uint8_t *app_key);
+
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
 
@@ -139,6 +145,8 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
  * \param dr data rate
  */
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
+
+enum uwan_errs uwan_join(uint16_t dev_nonce);
 
 /**
  * \brief Send uplink
