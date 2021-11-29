@@ -402,6 +402,7 @@ void uwan_radio_dio_callback(int dio_num)
         break;
 
     default:
+        break;
     }
 }
 
