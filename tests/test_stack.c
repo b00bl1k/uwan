@@ -55,6 +55,11 @@ static void radio_rx(bool continuous)
 {
 }
 
+static uint32_t radio_rand(void)
+{
+    return 0;
+}
+
 static uint8_t radio_handle_dio(int dio_num)
 {
     uint8_t irq = 0;
@@ -66,6 +71,7 @@ static const struct radio_dev radio = {
     .setup = radio_setup,
     .tx = radio_tx,
     .rx = radio_rx,
+    .rand = radio_rand,
     .handle_dio = radio_handle_dio,
 };
 
@@ -97,7 +103,7 @@ void app_stop_timer(enum uwan_timer_ids timer_id)
 
 }
 
-void app_downlink_callback(int result)
+void app_downlink_callback(enum uwan_errs err, enum uwan_status status)
 {
 
 }

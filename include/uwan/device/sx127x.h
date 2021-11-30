@@ -43,8 +43,11 @@
 /* LoRa Mode Registers */
 #define SX127X_REG_LR_FIFO_ADDR_PTR             0x0d
 #define SX127X_REG_LR_FIFO_TX_BASE_ADDR         0x0e
+#define SX127X_REG_LR_FIFO_RX_BASE_ADDR         0x0f
+#define SX127X_REG_LR_FIFO_RX_CURRENT_ADDR      0x10
 #define SX127X_REG_LR_IRQ_FLAGS_MASK            0x11
 #define SX127X_REG_LR_IRQ_FLAGS                 0x12
+#define SX127X_REG_LR_FIFO_RX_BYTES_NB          0x13
 #define SX127X_REG_LR_MODEM_CONFIG1             0x1d
 #define SX127X_REG_LR_MODEM_CONFIG2             0x1e
 #define SX127X_REG_LR_SYMB_TIMEOUT_LSB          0x1f
@@ -53,6 +56,7 @@
 #define SX127X_REG_LR_PAYLOAD_LENGTH            0x22
 #define SX127X_REG_LR_MAX_PAYLOAD_LENGTH        0x23
 #define SX127X_REG_LR_MODEM_CONFIG3             0x26
+#define SX127X_REG_LR_RSSI_WIDEBAND             0x2c
 #define SX127X_REG_LR_INVERT_IQ                 0x33
 #define SX127X_REG_LR_SYNC_WORD                 0x39
 #define SX127X_REG_LR_INVERT_IQ2                0x3b
@@ -290,6 +294,9 @@
 
 /* RegFifoTxBaseAddr */
 #define FIFO_TX_BASE_ADDR_RESET_VALUE           0x80
+
+/* RegFifoRxBaseAddr */
+#define FIFO_RX_BASE_ADDR_RESET_VALUE           0x00
 
 /* RegIrqFlagsMask */
 #define IRQ_FLAGS_MASK_RESET_VALUE              0x00

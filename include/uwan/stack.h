@@ -75,6 +75,17 @@ enum uwan_errs {
     UWAN_ERR_STATE,
     UWAN_ERR_DATARATE,
     UWAN_ERR_CHANNEL,
+    UWAN_ERR_RX_TIMEOUT,
+    UWAN_ERR_RX_CRC,
+    UWAN_ERR_MSG_LEN,
+    UWAN_ERR_MSG_MHDR,
+    UWAN_ERR_MSG_MIC,
+};
+
+enum uwan_status {
+    UWAN_ST_NO,
+    UWAN_ST_JOINED,
+    UWAN_ST_NOT_JOINED,
 };
 
 enum uwan_timer_ids {
@@ -102,13 +113,15 @@ struct radio_dev {
     void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
     void (*tx)(const uint8_t *buf, uint8_t len);
     void (*rx)(bool continous);
+    uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
+    uint32_t (*rand)(void);
     uint8_t (*handle_dio)(int dio_num);
 };
 
 struct stack_hal {
     void (*start_timer)(enum uwan_timer_ids timer_id, uint32_t timeout_ms);
     void (*stop_timer)(enum uwan_timer_ids timer_id);
-    void (*downlink_callback)(int result);
+    void (*downlink_callback)(enum uwan_errs err, enum uwan_status status);
 };
 
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
@@ -118,6 +131,11 @@ void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
 
 void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
+
+/**
+ * \brief Check for stack is joined
+ */
+bool uwan_is_joined(void);
 
 /**
  * \brief Enable or disable channel
@@ -146,7 +164,12 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
  */
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 
-enum uwan_errs uwan_join(uint16_t dev_nonce);
+/**
+ * \brief Send join-request message
+ *
+ * Network paramaters should be set by \sa uwan_set_otaa_keys
+ */
+enum uwan_errs uwan_join(void);
 
 /**
  * \brief Send uplink

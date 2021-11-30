@@ -31,6 +31,8 @@ static bool sx127x_set_power(int8_t power);
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
 static void sx127x_rx(bool continous);
+static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size);
+static uint32_t sx127x_rand(void);
 static uint8_t sx127x_handle_dio(int dio_num);
 
 /* lookup table for spreading factor */
@@ -70,6 +72,8 @@ const struct radio_dev sx127x_dev = {
     .setup = sx127x_setup,
     .tx = sx127x_tx,
     .rx = sx127x_rx,
+    .read_fifo = sx127x_read_fifo,
+    .rand = sx127x_rand,
     .handle_dio = sx127x_handle_dio,
 };
 
@@ -246,6 +250,41 @@ static void sx127x_rx(bool continous)
         set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
     else
         set_op_mode(OP_MODE_MODE_RX_SINGLE);
+}
+
+static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size)
+{
+    uint8_t size, fifo_ptr;
+
+    fifo_ptr = radio_read_reg(hal, SX127X_REG_LR_FIFO_RX_CURRENT_ADDR);
+    radio_write_reg(hal, SX127X_REG_LR_FIFO_ADDR_PTR, fifo_ptr);
+
+    size = radio_read_reg(hal, SX127X_REG_LR_FIFO_RX_BYTES_NB);
+
+    if (size > buf_size)
+        size = buf_size;
+
+    if (size > 0)
+        radio_read_array(hal, SX127X_REG_FIFO, buf, size);
+
+    return size;
+}
+
+static uint32_t sx127x_rand()
+{
+    uint32_t random = 0;
+
+    radio_write_reg(hal, SX127X_REG_LR_IRQ_FLAGS_MASK, 0xff);
+    set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
+
+    for (int i = 0; i < 32; i++)
+    {
+        hal->delay_us(1000);
+        random |= (radio_read_reg(hal, SX127X_REG_LR_RSSI_WIDEBAND) & 0x01) << i;
+    }
+    set_op_mode(OP_MODE_MODE_SLEEP);
+
+    return random;
 }
 
 static uint8_t sx127x_handle_dio(int dio_num)
