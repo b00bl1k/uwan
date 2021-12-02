@@ -176,15 +176,29 @@ bool sx127x_set_power(int8_t power)
 {
     uint8_t pa_conf = 0x0;
 
+    if (power < -4 || power > 17)
+        return false;
+
     if (power <= 14)
     {
-        uint8_t pmax = 0x7; // set max power to 15
-        pa_conf = PA_CONFIG_PA_SELECT_RFO | pmax << 4;
+        uint8_t pmax;
+        if (power < 0)
+        {
+            pmax = 0x0; // max power is 4 dBm
+            power += 4;
+        }
+        else
+        {
+            pmax = 0x7; // max power is 15 dBm
+        }
+        pa_conf = PA_CONFIG_PA_SELECT_RFO;
+        pa_conf |= (pmax << _PA_CONFIG_MAX_POWER_SHIFT);
         pa_conf |= ((uint8_t)power & _PA_CONFIG_OUTPUT_POWER_MASK);
     }
     else
     {
-        return false; // TODO
+        pa_conf = PA_CONFIG_PA_SELECT_PA_BOOST;
+        pa_conf |= ((uint8_t)(power - 2) & _PA_CONFIG_OUTPUT_POWER_MASK);
     }
 
     radio_write_reg(hal, SX127X_REG_PA_CONFIG, pa_conf);
