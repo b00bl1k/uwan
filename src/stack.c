@@ -252,8 +252,8 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
         return UWAN_ERR_MSG_LEN;
 
     mhdr = buf[offset++];
-    if (mhdr != (MTYPE_JOIN_ACCEPT << MTYPE_OFFSET)
-            | (MAJOR_LORAWAN_R1 << MAJOR_OFFSET))
+    if (mhdr != ((MTYPE_JOIN_ACCEPT << MTYPE_OFFSET)
+            | (MAJOR_LORAWAN_R1 << MAJOR_OFFSET)))
         return UWAN_ERR_MSG_MHDR;
 
     tc_aes_encrypt(buf + sizeof(mhdr), buf + sizeof(mhdr), &key_sched);
@@ -505,9 +505,12 @@ void uwan_radio_dio_callback(int dio_num)
     switch (uw_state)
     {
     case UWAN_STATE_TX:
-        uw_state = UWAN_STATE_RX1;
-        uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
-        uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
+        if (flags & RADIO_IRQF_TX_DONE)
+        {
+            uw_state = UWAN_STATE_RX1;
+            uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
+            uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
+        }
         break;
 
     case UWAN_STATE_RX1:
@@ -523,21 +526,22 @@ void uwan_radio_dio_callback(int dio_num)
         {
             // TODO handle_downlink(UWAN_ERR_RX_CRC);
             uw_stack_hal->stop_timer(UWAN_TIMER_RX2);
-            handle_downlink(UWAN_ERR_NO);
             uw_state = UWAN_STATE_IDLE;
+            handle_downlink(UWAN_ERR_NO);
         }
         break;
 
     case UWAN_STATE_RX2:
         if (flags & RADIO_IRQF_RX_TIMEOUT)
         {
+            uw_state = UWAN_STATE_IDLE;
             handle_downlink(UWAN_ERR_RX_TIMEOUT);
         }
         else if (flags & RADIO_IRQF_RX_DONE)
         {
             // TODO handle_downlink(UWAN_ERR_RX_CRC);
-            handle_downlink(UWAN_ERR_NO);
             uw_state = UWAN_STATE_IDLE;
+            handle_downlink(UWAN_ERR_NO);
         }
         break;
 
