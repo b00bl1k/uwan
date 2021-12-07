@@ -40,6 +40,9 @@
 #define SX127X_REG_DIO_MAPPING2                 0x41
 #define SX127X_REG_VERSION                      0x42
 
+/* FSK Mode Registers */
+#define SX127X_REG_FSK_IMAGE_CAL                0x3b
+
 /* LoRa Mode Registers */
 #define SX127X_REG_LR_FIFO_ADDR_PTR             0x0d
 #define SX127X_REG_LR_FIFO_TX_BASE_ADDR         0x0e
@@ -286,6 +289,21 @@
 
 /* RegImageCal */
 #define IMAGE_CAL_RESET_VALUE                   0x82
+
+#define _IMAGE_CAL_AUTO_IMAGE_CAL_ON_MASK       0x1
+#define _IMAGE_CAL_AUTO_IMAGE_CAL_ON_SHIFT      7
+#define _IMAGE_CAL_AUTO_IMAGE_CAL_ON_ENABLED    1
+#define _IMAGE_CAL_AUTO_IMAGE_CAL_ON_DISABLED   0
+#define IMAGE_CAL_AUTO_IMAGE_CAL_ON_ENABLED     (_IMAGE_CAL_AUTO_IMAGE_CAL_ON_ENABLED << _IMAGE_CAL_AUTO_IMAGE_CAL_ON_SHIFT)
+#define IMAGE_CAL_AUTO_IMAGE_CAL_ON_DISABLED    (_IMAGE_CAL_AUTO_IMAGE_CAL_ON_DISABLED << _IMAGE_CAL_AUTO_IMAGE_CAL_ON_SHIFT)
+
+#define _IMAGE_CAL_IMAGE_CAL_START_MASK         0x1
+#define _IMAGE_CAL_IMAGE_CAL_START_SHIFT        6
+#define IMAGE_CAL_IMAGE_CAL_START               (_IMAGE_CAL_IMAGE_CAL_START_MASK << _IMAGE_CAL_IMAGE_CAL_START_SHIFT)
+
+#define _IMAGE_CAL_IMAGE_CAL_RUNNING_MASK       0x1
+#define _IMAGE_CAL_IMAGE_CAL_RUNNING_SHIFT      5
+#define IMAGE_CAL_IMAGE_CAL_RUNNING             (_IMAGE_CAL_IMAGE_CAL_RUNNING_MASK << _IMAGE_CAL_IMAGE_CAL_RUNNING_SHIFT)
 
 /* Description of LoRa Mode Registers --------------------------------------- */
 

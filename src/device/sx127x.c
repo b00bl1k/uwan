@@ -139,6 +139,28 @@ static void set_inverted_iq(bool inverted_iq)
     }
 }
 
+static bool rx_calibartion(void)
+{
+    // LF front-end already calibarted after POR
+
+    // Calibrate HF
+    sx127x_set_freq(868800000);
+
+    uint8_t value = radio_read_reg(hal, SX127X_REG_FSK_IMAGE_CAL);
+    value |= IMAGE_CAL_IMAGE_CAL_START;
+    radio_write_reg(hal, SX127X_REG_FSK_IMAGE_CAL, value);
+
+    // The calibration procedure takes approximately 10ms
+    uint8_t timeout = 15;
+    do {
+        timeout--;
+        hal->delay_us(1000);
+        value = radio_read_reg(hal, SX127X_REG_FSK_IMAGE_CAL);
+    } while ((timeout != 0) && (value & IMAGE_CAL_IMAGE_CAL_RUNNING));
+
+    return timeout != 0;
+}
+
 static bool sx127x_init(const struct radio_hal *r_hal)
 {
     hal = r_hal;
@@ -150,6 +172,9 @@ static bool sx127x_init(const struct radio_hal *r_hal)
     hal->delay_us(6000); // >5ms
 
     if (radio_read_reg(hal, SX127X_REG_VERSION) != VERSION_RESET_VALUE)
+        return false;
+
+    if (rx_calibartion() == false)
         return false;
 
     radio_write_reg(hal, SX127X_REG_OP_MODE, OP_MODE_MODE_SLEEP);
