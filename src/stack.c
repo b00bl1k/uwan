@@ -487,6 +487,8 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key, dir, true);
     offset += 4;
 
+    uw_session.f_cnt_up++;
+
     uw_rx1_delay = RECEIVE_DELAY1;
     uw_rx2_delay = RECEIVE_DELAY2;
     uw_state = UWAN_STATE_TX;
