@@ -26,6 +26,7 @@
 
 /* export funcs for radio driver struct */
 static bool sx127x_init(const struct radio_hal *r_hal);
+static void sx127x_sleep(void);
 static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
@@ -67,6 +68,7 @@ static const struct radio_hal *hal;
 /* export radio driver */
 const struct radio_dev sx127x_dev = {
     .init = sx127x_init,
+    .sleep = sx127x_sleep,
     .set_frequency = sx127x_set_freq,
     .set_power = sx127x_set_power,
     .setup = sx127x_setup,
@@ -186,6 +188,11 @@ static bool sx127x_init(const struct radio_hal *r_hal)
     radio_write_reg(hal, SX127X_REG_LNA, LNA_LNA_GAIN_G1 | LNA_LNA_BOOST_HF_BOOST);
 
     return true;
+}
+
+static void sx127x_sleep()
+{
+    set_op_mode(OP_MODE_MODE_SLEEP);
 }
 
 static void sx127x_set_freq(uint32_t freq)

@@ -108,6 +108,7 @@ struct radio_hal {
 
 struct radio_dev {
     bool (*init)(const struct radio_hal *hal);
+    void (*sleep)(void);
     void (*set_frequency)(uint32_t frequency);
     bool (*set_power)(int8_t power);
     void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);

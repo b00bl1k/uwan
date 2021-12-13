@@ -303,6 +303,8 @@ static void handle_downlink(enum uwan_errs err)
 {
     enum uwan_status status = UWAN_ST_NO;
 
+    uw_radio->sleep();
+
     if (err == UWAN_ERR_NO) {
         uw_frame_size = uw_radio->read_fifo(uw_frame, sizeof(uw_frame));
     }
