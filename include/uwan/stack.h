@@ -104,6 +104,9 @@ struct radio_hal {
     void (*reset)(bool enable);
     void (*select)(bool enable);
     void (*delay_us)(uint32_t us);
+    void (*io_init)(void);  // optional
+    void (*io_deinit)(void);  // optional
+    void (*ant_sw_ctrl)(bool is_rx);  // optional
 };
 
 struct radio_dev {

@@ -173,6 +173,9 @@ static bool sx127x_init(const struct radio_hal *r_hal)
     hal->reset(false);
     hal->delay_us(6000); // >5ms
 
+    if (hal->io_deinit)
+        hal->io_deinit();
+
     if (radio_read_reg(hal, SX127X_REG_VERSION) != VERSION_RESET_VALUE)
         return false;
 
@@ -193,6 +196,8 @@ static bool sx127x_init(const struct radio_hal *r_hal)
 static void sx127x_sleep()
 {
     set_op_mode(OP_MODE_MODE_SLEEP);
+    if (hal->io_deinit)
+        hal->io_deinit();
 }
 
 static void sx127x_set_freq(uint32_t freq)
@@ -254,6 +259,9 @@ static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
 
     bool low_dr_opti = (sf >= UWAN_SF_11);
     lora_set_modem_conf3(low_dr_opti, true);
+
+    if (hal->io_init)
+        hal->io_init();
 }
 
 static void sx127x_tx(const uint8_t *buf, uint8_t len)
@@ -270,6 +278,8 @@ static void sx127x_tx(const uint8_t *buf, uint8_t len)
     radio_write_reg(hal, SX127X_REG_LR_IRQ_FLAGS_MASK, ~mask);
     radio_write_reg(hal, SX127X_REG_DIO_MAPPING1, DIO_MAPPING1_DIO0_LR_TX_DONE);
 
+    if (hal->ant_sw_ctrl)
+        hal->ant_sw_ctrl(false);
     set_op_mode(OP_MODE_MODE_TX);
 }
 
@@ -291,6 +301,9 @@ static void sx127x_rx(bool continous)
     radio_write_reg(hal, SX127X_REG_DIO_MAPPING1, DIO_MAPPING1_DIO0_LR_RX_DONE
         | DIO_MAPPING1_DIO1_LR_RX_TIMEOUT
         | DIO_MAPPING1_DIO3_LR_PAYLOAD_CRC_ERROR);
+
+    if (hal->ant_sw_ctrl)
+        hal->ant_sw_ctrl(true);
 
     if (continous)
         set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
