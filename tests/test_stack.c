@@ -29,6 +29,7 @@
 static uint8_t radio_frame[256];
 static uint8_t radio_frame_size;
 static uint32_t radio_freq;
+static int radio_sleep_call_count;
 static enum uwan_sf radio_sf;
 static enum uwan_bw radio_bw;
 static enum uwan_cr radio_cr;
@@ -58,12 +59,17 @@ static const uint8_t tx_payload[] = {
     0x00, 0x01, 0x02, 0x03,
 };
 
-void radio_set_frequency(uint32_t frequency)
+static void radio_set_frequency(uint32_t frequency)
 {
     radio_freq = frequency;
 }
 
-void radio_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
+static void radio_sleep(void)
+{
+    radio_sleep_call_count++;
+}
+
+static void radio_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
 {
     radio_sf = sf;
     radio_bw = bw;
@@ -99,6 +105,7 @@ static uint8_t radio_handle_dio(int dio_num)
 
 static const struct radio_dev radio = {
     .set_frequency = radio_set_frequency,
+    .sleep = radio_sleep,
     .setup = radio_setup,
     .tx = radio_tx,
     .rx = radio_rx,
@@ -171,6 +178,7 @@ void test_join_successfull()
     radio_dio_irq = RADIO_IRQF_RX_DONE;
     uwan_radio_dio_callback(0);
 
+    assert(radio_sleep_call_count == 1);
     assert(app_downlink_callback_call_count == 1);
     assert(app_err == UWAN_ERR_NO);
     assert(app_status == UWAN_ST_JOINED);
