@@ -5,7 +5,7 @@ Simple and lightweight LoRaWAN messaging library in pure C.
 ## Features
 - LoRaWAN Specification 1.0.3
 - [x] ABP
-- [ ] OTAA
+- [x] OTAA
 - [x] Class A
 - [ ] Class C
 - [x] Uplink
