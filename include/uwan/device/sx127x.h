@@ -41,6 +41,24 @@
 #define SX127X_REG_VERSION                      0x42
 
 /* FSK Mode Registers */
+#define SX127X_REG_FSK_RX_CONFIG                0x0d
+#define SX127X_REG_FSK_RSSI_CONFIG              0x0e
+#define SX127X_REG_FSK_RSSI_COLLISION           0x0f
+#define SX127X_REG_FSK_RSSI_THRESH              0x10
+#define SX127X_REG_FSK_RSSI_VALUE               0x11
+#define SX127X_REG_FSK_RX_BW                    0x12
+#define SX127X_REG_FSK_AFC_BW                   0x13
+#define SX127X_REG_FSK_FEI_MSB                  0x1d
+#define SX127X_REG_FSK_FEI_LSB                  0x1e
+#define SX127X_REG_FSK_PREAMBLE_DETECT          0x1f
+#define SX127X_REG_FSK_RX_TIMEOUT1              0x20
+#define SX127X_REG_FSK_RX_TIMEOUT2              0x21
+#define SX127X_REG_FSK_RX_TIMEOUT3              0x22
+#define SX127X_REG_FSK_RX_DELAY                 0x23
+#define SX127X_REG_FSK_PREAMBLE_LSB             0x26
+#define SX127X_REG_FSK_SYNC_VALUE5              0x2c
+#define SX127X_REG_FSK_NODE_ADRS                0x33
+#define SX127X_REG_FSK_TIMER1_COEF              0x39
 #define SX127X_REG_FSK_IMAGE_CAL                0x3b
 
 /* LoRa Mode Registers */
@@ -66,6 +84,9 @@
 
 /* Description of Common Registers ------------------------------------------ */
 
+/* RegFifo */
+#define FIFO_RESET_VALUE                        0x00
+
 /* RegOpMode */
 #define OP_MODE_RESET_VALUE                     0x01
 
@@ -75,6 +96,13 @@
 #define _OP_MODE_LONG_RANGE_MODE_OFF            0
 #define OP_MODE_LONG_RANGE_MODE_ON              (_OP_MODE_LONG_RANGE_MODE_ON << _OP_MODE_LONG_RANGE_MODE_SHIFT)
 #define OP_MODE_LONG_RANGE_MODE_OFF             (_OP_MODE_LONG_RANGE_MODE_OFF << _OP_MODE_LONG_RANGE_MODE_SHIFT)
+
+#define _OP_MODE_ACCESS_SHARED_REG_MASK         0x1
+#define _OP_MODE_ACCESS_SHARED_REG_SHIFT        6
+#define _OP_MODE_ACCESS_SHARED_REG_FSK          1
+#define _OP_MODE_ACCESS_SHARED_REG_LORA         0
+#define OP_MODE_ACCESS_SHARED_REG_FSK           (_OP_MODE_ACCESS_SHARED_REG_FSK << _OP_MODE_ACCESS_SHARED_REG_SHIFT)
+#define OP_MODE_ACCESS_SHARED_REG_LORA          (_OP_MODE_ACCESS_SHARED_REG_LORA << _OP_MODE_ACCESS_SHARED_REG_SHIFT)
 
 #define _OP_MODE_MODULATION_TYPE_MASK           0x3
 #define _OP_MODE_MODULATION_TYPE_SHIFT          5
@@ -260,8 +288,17 @@
 
 /* RegRssiValue */
 
+/* RegRssiCollision */
+#define RSSI_COLLISION_RESET_VALUE              0x0a
+
+/* RegRssiThresh */
+#define RSSI_THRESH_RESET_VALUE                 0xff
+
 /* RegRxBw */
 #define RX_BW_RESET_VALUE                       0x15
+
+/* RegAfcBw */
+#define AFC_BW_RESET_VALUE                      0x0b
 
 /* RegFeiMsb */
 #define FEI_MSB_RESET_VALUE                     0x00
@@ -278,8 +315,17 @@
 /* RegRxTimeout2 */
 #define RX_TIMEOUT2_RESET_VALUE                 0x00
 
+/* RegRxTimeout2 */
+#define RX_TIMEOUT3_RESET_VALUE                 0x00
+
+/* RegRxDelay */
+#define RX_DELAY_RESET_VALUE                    0x00
+
 /* RegPreambleLsb */
 #define PREAMBLE_LSB_RESET_VALUE                0x03
+
+/* RegSyncValue5 */
+#define SYNC_VALUE5_RESET_VALUE                 0x55
 
 /* RegNodeAdrs */
 #define NODE_ADRS_RESET_VALUE                   0x00

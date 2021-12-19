@@ -23,79 +23,53 @@
  */
 
 #include <assert.h>
+#include <stddef.h>
 #include <uwan/device/sx127x.h>
 
-uint8_t sx_registers[] = {
-    0x00,
-    0x01,
-    0x1a,
-    0x0b,
-    0x00,
-    0x52,
-    0x6c,
-    0x80,
-    0x00,
-    0x4f,
-    0x09,
-    0x2b,
-    0x20,
-    0x08,
-    0x02,
-    0x0a,
-    0xff, // 0x10
-    0x00, // n/a
-    0x15,
-    0x0b,
-    0x28,
-    0x0c,
-    0x12,
-    0x47,
-    0x32,
-    0x3e,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x40,
-    0x00, // 0x20
-    0x00,
-    0x00,
-    0x00,
-    0x05,
-    0x00,
-    0x03,
-    0x93,
-    0x55,
-    0x55,
-    0x55,
-    0x55,
-    0x55,
-    0x55,
-    0x55,
-    0x55,
-    0x90, // 0x30
-    0x40,
-    0x40,
-    0x00,
-    0x00,
-    0x0f,
-    0x00,
-    0x00,
-    0x00,
-    0xf5,
-    0x20,
-    0x82,
-    0x00, // reg temp
-    0x02,
-    0x80,
-    0x40,
-    0x00, // 0x40
-    0x00,
-    0x12,
-    0x00, // ---
-    0x2d,
-    // ...
+#define NA 0x0
+
+#define LORA_PAGE_START 0x0d
+#define LORA_PAGE_END 0x3f
+
+struct sx127x_reg {
+    uint8_t addr;
+    uint8_t fsk_value;
+    uint8_t lora_value;
+};
+
+struct sx127x_reg sx127x_regs[] = {
+    /* Common Registers */
+    {SX127X_REG_FIFO, FIFO_RESET_VALUE, 0},
+    {SX127X_REG_OP_MODE, OP_MODE_RESET_VALUE, 0},
+    {SX127X_REG_FRF_MSB, FRF_MSB_RESET_VALUE, 0},
+    {SX127X_REG_FRF_MID, FRF_MID_RESET_VALUE, 0},
+    {SX127X_REG_FRF_LSB, FRF_LSB_RESET_VALUE, 0},
+    {SX127X_REG_PA_CONFIG, PA_CONFIG_RESET_VALUE, 0},
+    {SX127X_REG_PA_RAMP, PA_RAMP_RESET_VALUE, 0},
+    {SX127X_REG_LNA, LNA_RESET_VALUE, 0},
+    {SX127X_REG_DIO_MAPPING1, DIO_MAPPING1_RESET_VALUE, 0},
+    {SX127X_REG_DIO_MAPPING2, DIO_MAPPING2_RESET_VALUE, 0},
+    {SX127X_REG_VERSION, VERSION_RESET_VALUE, 0},
+
+    {SX127X_REG_FSK_RX_CONFIG, RX_CONFIG_RESET_VALUE, FIFO_ADDR_PTR_RESET_VALUE},
+    {SX127X_REG_FSK_RSSI_CONFIG, RSSI_CONFIG_RESET_VALUE, FIFO_TX_BASE_ADDR_RESET_VALUE},
+    {SX127X_REG_FSK_RSSI_COLLISION, RSSI_COLLISION_RESET_VALUE, FIFO_RX_BASE_ADDR_RESET_VALUE},
+    {SX127X_REG_FSK_RSSI_THRESH, RSSI_THRESH_RESET_VALUE, NA},
+    {SX127X_REG_FSK_RSSI_VALUE, NA, IRQ_FLAGS_MASK_RESET_VALUE},
+    {SX127X_REG_FSK_RX_BW, RX_BW_RESET_VALUE, IRQ_FLAGS_RESET_VALUE},
+    {SX127X_REG_FSK_AFC_BW, AFC_BW_RESET_VALUE, NA},
+    {SX127X_REG_FSK_FEI_MSB, FEI_MSB_RESET_VALUE, MODEM_CONFIG1_RESET_VALUE},
+    {SX127X_REG_FSK_FEI_LSB, FEI_LSB_RESET_VALUE, MODEM_CONFIG2_RESET_VALUE},
+    {SX127X_REG_FSK_PREAMBLE_DETECT, PREAMBLE_DETECT_RESET_VALUE, SYMB_TIMEOUT_LSB_RESET_VALUE},
+    {SX127X_REG_FSK_RX_TIMEOUT1, RX_TIMEOUT1_RESET_VALUE, LR_PREAMBLE_MSB_RESET_VALUE},
+    {SX127X_REG_FSK_RX_TIMEOUT2, RX_TIMEOUT2_RESET_VALUE, LR_PREAMBLE_LSB_RESET_VALUE},
+    {SX127X_REG_FSK_RX_TIMEOUT3, RX_TIMEOUT3_RESET_VALUE, LR_PAYLOAD_LENGTH_RESET_VALUE},
+    {SX127X_REG_FSK_RX_DELAY, RX_DELAY_RESET_VALUE, LR_MAX_PAYLOAD_LENGTH_RESET_VALUE},
+    {SX127X_REG_FSK_PREAMBLE_LSB, PREAMBLE_LSB_RESET_VALUE, MODEM_CONFIG3_RESET_VALUE},
+    {SX127X_REG_FSK_SYNC_VALUE5, SYNC_VALUE5_RESET_VALUE, NA},
+    {SX127X_REG_FSK_NODE_ADRS, NODE_ADRS_RESET_VALUE, INVERT_IQ_RESET_VALUE},
+    {SX127X_REG_FSK_TIMER1_COEF, TIMER1_COEF_RESET_VALUE, SYNC_WORD_RESET_VALUE},
+    {SX127X_REG_FSK_IMAGE_CAL, IMAGE_CAL_RESET_VALUE, INVERT_IQ2_RESET_VALUE},
 };
 
 void hal_radio_reset(bool en)
@@ -111,18 +85,44 @@ const struct radio_hal my_hal = {
     .delay_us = hal_delay_us,
 };
 
+static struct sx127x_reg *find_reg(uint8_t addr)
+{
+    for (int i = 0; i < sizeof(sx127x_regs) / sizeof(sx127x_regs[0]); i++)
+        if (sx127x_regs[i].addr == addr)
+            return &sx127x_regs[i];
+
+    return NULL;
+}
+
+static uint8_t *get_ptr_to_reg_value(uint8_t addr)
+{
+    struct sx127x_reg *reg = find_reg(addr);
+    struct sx127x_reg *reg_op_mode = find_reg(SX127X_REG_OP_MODE);
+
+    assert(reg);
+    assert(reg_op_mode);
+
+    bool is_lora_reg = (reg_op_mode->fsk_value & OP_MODE_LONG_RANGE_MODE_ON)
+        && ((reg_op_mode->fsk_value & OP_MODE_ACCESS_SHARED_REG_FSK) == 0)
+        && (addr >= LORA_PAGE_START)
+        && (addr <= LORA_PAGE_END);
+
+    if (is_lora_reg)
+        return &reg->lora_value;
+
+    return &reg->fsk_value;
+}
+
 void radio_write_reg(const struct radio_hal *hal, uint8_t addr, uint8_t data)
 {
-    if (addr < sizeof(sx_registers))
-        sx_registers[addr] = data;
+    uint8_t *value = get_ptr_to_reg_value(addr);
+    *value = data;
 }
 
 uint8_t radio_read_reg(const struct radio_hal *hal, uint8_t addr)
 {
-    if (addr < sizeof(sx_registers))
-        return sx_registers[addr];
-
-    return 0xff;
+    uint8_t *value = get_ptr_to_reg_value(addr);
+    return *value;
 }
 
 void radio_write_array(const struct radio_hal *hal, uint8_t addr,
@@ -149,15 +149,15 @@ int main()
     sx127x_dev.tx(payload, sizeof(payload));
 
     // see Semtech AN1200.24 p2.1
-    assert((sx_registers[SX127X_REG_OP_MODE] & 0x87) == 0x83);
-    assert((sx_registers[SX127X_REG_PA_RAMP] & 0x0f) == 0x08);
-    assert(sx_registers[SX127X_REG_LR_MODEM_CONFIG1] == 0x72);
-    assert((sx_registers[SX127X_REG_LR_MODEM_CONFIG2] & 0xf4) == 0xc4);
-    assert((sx_registers[SX127X_REG_LR_MODEM_CONFIG3] & 0x08) == 0x08);
-    assert(sx_registers[SX127X_REG_LR_SYNC_WORD] == 0x34);
-    assert(sx_registers[SX127X_REG_LR_INVERT_IQ] == 0x27);
-    assert(sx_registers[SX127X_REG_LR_INVERT_IQ2] == 0x1d);
-    assert(sx_registers[SX127X_REG_LR_PAYLOAD_LENGTH] == sizeof(payload));
+    assert((get_ptr_to_reg_value(SX127X_REG_OP_MODE)[0] & 0x87) == 0x83);
+    assert((get_ptr_to_reg_value(SX127X_REG_PA_RAMP)[0] & 0x0f) == 0x08);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_MODEM_CONFIG1)[0] == 0x72);
+    assert((get_ptr_to_reg_value(SX127X_REG_LR_MODEM_CONFIG2)[0] & 0xf4) == 0xc4);
+    assert((get_ptr_to_reg_value(SX127X_REG_LR_MODEM_CONFIG3)[0] & 0x08) == 0x08);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_SYNC_WORD)[0] == 0x34);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_INVERT_IQ)[0] == 0x27);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_INVERT_IQ2)[0] == 0x1d);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_PAYLOAD_LENGTH)[0] == sizeof(payload));
 
     return 0;
 }
