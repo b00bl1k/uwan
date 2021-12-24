@@ -129,8 +129,7 @@ static struct tc_cmac_struct cmac_state;
 static const struct node_channel *get_next_channel()
 {
     // TODO improve this
-    for (int i = 0; i < MAX_CHANNELS; i++)
-    {
+    for (int i = 0; i < MAX_CHANNELS; i++) {
         if (uw_channels_mask[i / 8] & (1 << (i % 8)))
             return &uw_channels[i];
     }
@@ -252,8 +251,8 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
         return UWAN_ERR_MSG_LEN;
 
     mhdr = buf[offset++];
-    if (mhdr != ((MTYPE_JOIN_ACCEPT << MTYPE_OFFSET)
-            | (MAJOR_LORAWAN_R1 << MAJOR_OFFSET)))
+    if (mhdr != ((MTYPE_JOIN_ACCEPT << MTYPE_OFFSET) |
+                 (MAJOR_LORAWAN_R1 << MAJOR_OFFSET)))
         return UWAN_ERR_MSG_MHDR;
 
     tc_aes_encrypt(buf + sizeof(mhdr), buf + sizeof(mhdr), &key_sched);
@@ -309,23 +308,19 @@ static void handle_downlink(enum uwan_errs err)
 
     uw_radio->sleep();
 
-    if (uw_mtype == MTYPE_JOIN_REQUEST)
-    {
+    if (uw_mtype == MTYPE_JOIN_REQUEST) {
         if (err == UWAN_ERR_NO)
             err = handle_join_msg(uw_frame, uw_frame_size);
 
-        if (err == UWAN_ERR_NO)
-        {
+        if (err == UWAN_ERR_NO) {
             uw_is_joined = true;
             status = UWAN_ST_JOINED;
         }
-        else
-        {
+        else {
             status = UWAN_ST_NOT_JOINED;
         }
     }
-    else
-    {
+    else {
         err = handle_data_msg(uw_frame, uw_frame_size);
     }
 
@@ -437,7 +432,8 @@ enum uwan_errs uwan_join()
     uw_frame[offset++] = uw_session.dev_nonce & 0xff;
     uw_frame[offset++] = (uw_session.dev_nonce >> 8) & 0xff;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key, dir, false);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key, dir,
+        false);
     offset += 4;
 
     uw_rx1_delay = JOIN_ACCEPT_DELAY1;
@@ -486,7 +482,8 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     encrypt_payload(dir, &uw_frame[offset], pld_len);
     offset += pld_len;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key, dir, true);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key, dir,
+        true);
     offset += 4;
 
     uw_session.f_cnt_up++;
@@ -506,11 +503,9 @@ void uwan_radio_dio_callback(int dio_num)
 
     uint8_t flags = uw_radio->handle_dio(dio_num);
 
-    switch (uw_state)
-    {
+    switch (uw_state) {
     case UWAN_STATE_TX:
-        if (flags & RADIO_IRQF_TX_DONE)
-        {
+        if (flags & RADIO_IRQF_TX_DONE) {
             uw_state = UWAN_STATE_RX1;
             uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
             uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
@@ -518,16 +513,14 @@ void uwan_radio_dio_callback(int dio_num)
         break;
 
     case UWAN_STATE_RX1:
-        if (flags & RADIO_IRQF_RX_TIMEOUT)
-        {
+        if (flags & RADIO_IRQF_RX_TIMEOUT) {
             // prepare radio for RX2
             uw_state = UWAN_STATE_RX2;
             const struct node_dr *dr = &uw_dr_table[uw_rx2_dr];
             uw_radio->set_frequency(uw_rx2_frequency);
             uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
         }
-        else if (flags & RADIO_IRQF_RX_DONE)
-        {
+        else if (flags & RADIO_IRQF_RX_DONE) {
             // TODO handle_downlink(UWAN_ERR_RX_CRC);
             uw_stack_hal->stop_timer(UWAN_TIMER_RX2);
             uw_state = UWAN_STATE_IDLE;
@@ -536,13 +529,11 @@ void uwan_radio_dio_callback(int dio_num)
         break;
 
     case UWAN_STATE_RX2:
-        if (flags & RADIO_IRQF_RX_TIMEOUT)
-        {
+        if (flags & RADIO_IRQF_RX_TIMEOUT) {
             uw_state = UWAN_STATE_IDLE;
             handle_downlink(UWAN_ERR_RX_TIMEOUT);
         }
-        else if (flags & RADIO_IRQF_RX_DONE)
-        {
+        else if (flags & RADIO_IRQF_RX_DONE) {
             // TODO handle_downlink(UWAN_ERR_RX_CRC);
             uw_state = UWAN_STATE_IDLE;
             handle_downlink(UWAN_ERR_NO);
@@ -556,12 +547,10 @@ void uwan_radio_dio_callback(int dio_num)
 
 void uwan_timer_callback(enum uwan_timer_ids timer_id)
 {
-    if (uw_state == UWAN_STATE_RX1 && timer_id == UWAN_TIMER_RX1)
-    {
+    if (uw_state == UWAN_STATE_RX1 && timer_id == UWAN_TIMER_RX1) {
         uw_radio->rx(false);
     }
-    else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2)
-    {
+    else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2) {
         uw_radio->rx(false);
     }
 }
