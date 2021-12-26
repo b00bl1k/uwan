@@ -15,20 +15,23 @@ set(TINYCRYPT_SRC
 set(LIB_SRC
     ${SRC_DIR}/device/radio.c
     ${SRC_DIR}/device/sx127x.c
-    ${SRC_DIR}/stack.c)
+    ${SRC_DIR}/channels.c
+    ${SRC_DIR}/stack.c
+    ${SRC_DIR}/utils.c)
 
 add_library(uwan STATIC ${LIB_SRC} ${TINYCRYPT_SRC})
 target_include_directories(uwan
-  PRIVATE
-    "${TINYCRYPT_DIR}/lib/include"
-  PUBLIC
-    $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PRIVATE
+        "$SRC_DIR"
+        "${TINYCRYPT_DIR}/lib/include"
+    PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 set_target_properties(uwan PROPERTIES OUTPUT_NAME uwan)
 
 option(BUILD_TESTING "Build and run tests" ON)
 if (${BUILD_TESTING})
-	enable_testing()
+    enable_testing()
     add_subdirectory(tests)
 endif()

@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <string.h>
 #include <uwan/stack.h>
+#include "utils.h"
 
 static uint8_t radio_frame[256];
 static uint8_t radio_frame_size;
@@ -96,6 +97,15 @@ static uint8_t radio_read_fifo(uint8_t *buf, uint8_t buf_size)
 static uint32_t radio_rand(void)
 {
     return 0;
+}
+
+void utils_random_init(uint32_t seed)
+{
+}
+
+uint32_t utils_get_random(uint32_t max)
+{
+    return 0x01234567 % max;
 }
 
 static uint8_t radio_handle_dio(int dio_num)

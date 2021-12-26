@@ -23,15 +23,14 @@
  */
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <tinycrypt/aes.h>
 #include <tinycrypt/cmac_mode.h>
 
 #include <uwan/stack.h>
-
-#define BYTES_FOR_BITS(bits) ((bits % 8) ? (bits / 8 + 1) : (bits / 8))
+#include "channels.h"
+#include "utils.h"
 
 #define MAJOR_MASK 0x3
 #define MAJOR_OFFSET 0
@@ -54,8 +53,6 @@
 #define FCTRL_FOPTS_MASK 0xf
 
 #define AES_BLOCK_SIZE 16
-
-#define MAX_CHANNELS 16
 
 #define RECEIVE_DELAY1 1000
 #define RECEIVE_DELAY2 2000
@@ -82,12 +79,6 @@ struct node_session {
     uint16_t f_cnt_down;
     uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
     uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
-};
-
-struct node_channel {
-    uint32_t frequency; // 0 - is disabled
-    enum uwan_dr dr_min;
-    enum uwan_dr dr_max;
 };
 
 struct node_dr {
@@ -117,25 +108,12 @@ static bool uw_is_joined;
 static uint8_t uw_mtype;
 
 /* Channel plan variables */
-static uint8_t uw_channels_mask[BYTES_FOR_BITS(MAX_CHANNELS)];
-static struct node_channel uw_channels[MAX_CHANNELS];
 static uint32_t uw_rx2_frequency;
 static enum uwan_dr uw_rx2_dr;
 
 /* Encryption variables */
 static struct tc_aes_key_sched_struct key_sched;
 static struct tc_cmac_struct cmac_state;
-
-static const struct node_channel *get_next_channel()
-{
-    // TODO improve this
-    for (int i = 0; i < MAX_CHANNELS; i++) {
-        if (uw_channels_mask[i / 8] & (1 << (i % 8)))
-            return &uw_channels[i];
-    }
-
-    return NULL;
-}
 
 static void encrypt_payload(uint8_t dir, uint8_t *buf, uint8_t size)
 {
@@ -333,10 +311,8 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack)
     uw_radio = radio;
     uw_stack_hal = stack;
 
-    // disable all channels
-    memset(uw_channels_mask, 0, sizeof(uw_channels_mask));
-
-    srand(radio->rand());
+    channels_init();
+    utils_random_init(radio->rand());
 }
 
 void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
@@ -363,35 +339,6 @@ bool uwan_is_joined()
     return uw_is_joined;
 }
 
-enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
-{
-    if (index >= MAX_CHANNELS)
-        return UWAN_ERR_CHANNEL;
-
-    if (enable)
-        uw_channels_mask[index / 8] |= 1 << (index % 8);
-    else
-        uw_channels_mask[index / 8] &= ~(1 << (index % 8));
-
-    return UWAN_ERR_NO;
-}
-
-enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
-    enum uwan_dr dr_min, enum uwan_dr dr_max)
-{
-    if (index >= MAX_CHANNELS)
-        return UWAN_ERR_CHANNEL;
-    if (dr_min > dr_max || dr_min < UWAN_DR_0 || dr_max >= UWAN_DR_COUNT)
-        return UWAN_ERR_DATARATE;
-
-    uw_channels[index].frequency = frequency;
-    uw_channels[index].dr_min = dr_min;
-    uw_channels[index].dr_max = dr_max;
-    uw_channels_mask[index / 8] |= 1 << (index % 8);
-
-    return UWAN_ERR_NO;
-}
-
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
 {
     if (dr < UWAN_DR_0 || dr >= UWAN_DR_COUNT)
@@ -411,7 +358,7 @@ enum uwan_errs uwan_join()
     if (uw_state != UWAN_STATE_IDLE)
         return UWAN_ERR_STATE;
 
-    const struct node_channel *ch = get_next_channel();
+    const struct node_channel *ch = channels_get_next();
     if (ch == NULL)
         return UWAN_ERR_CHANNEL;
 
@@ -428,7 +375,7 @@ enum uwan_errs uwan_join()
     for (uint8_t i = UWAN_DEV_EUI_SIZE; i > 0; i--)
         uw_frame[offset++] = uw_session.dev_eui[i - 1];
 
-    uw_session.dev_nonce = rand() % 65536;
+    uw_session.dev_nonce = utils_get_random(65536);
     uw_frame[offset++] = uw_session.dev_nonce & 0xff;
     uw_frame[offset++] = (uw_session.dev_nonce >> 8) & 0xff;
 
@@ -453,7 +400,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     if (uw_state != UWAN_STATE_IDLE)
         return UWAN_ERR_STATE;
 
-    const struct node_channel *ch = get_next_channel();
+    const struct node_channel *ch = channels_get_next();
     if (ch == NULL)
         return UWAN_ERR_CHANNEL;
 
