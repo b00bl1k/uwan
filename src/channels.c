@@ -31,25 +31,28 @@
 
 #define MAX_CHANNELS 16
 
+static uint8_t uw_channels_max_index;
 static uint8_t uw_channels_mask[BYTES_FOR_BITS(MAX_CHANNELS)];
 static struct node_channel uw_channels[MAX_CHANNELS];
 
 void channels_init()
 {
     memset(uw_channels_mask, 0, sizeof(uw_channels_mask));
+    uw_channels_max_index = 0;
 }
 
 const struct node_channel *channels_get_next()
 {
     uint8_t ch;
     uint8_t start_ch;
+    uint8_t ch_max_count = uw_channels_max_index + 1;
 
-    ch = start_ch = utils_get_random(MAX_CHANNELS);
+    ch = start_ch = utils_get_random(ch_max_count);
 
     do {
         if (BIT_IS_SET(uw_channels_mask, ch))
             return &uw_channels[ch];
-        ch = (ch + 1) % MAX_CHANNELS;
+        ch = (ch + 1) % ch_max_count;
     } while (start_ch != ch);
 
     return NULL;
@@ -60,10 +63,19 @@ enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
     if (index >= MAX_CHANNELS)
         return UWAN_ERR_CHANNEL;
 
-    if (enable)
+    if (enable) {
+        uw_channels_max_index = MAX(uw_channels_max_index, index);
         BIT_SET(uw_channels_mask, index);
-    else
+    }
+    else {
         BIT_CLEAR(uw_channels_mask, index);
+        if (uw_channels_max_index == index) {
+            for (uint8_t i = 0; i < index; i++) {
+                if (BIT_IS_SET(uw_channels_mask, i))
+                    uw_channels_max_index = i;
+            }
+        }
+    }
 
     return UWAN_ERR_NO;
 }
@@ -79,7 +91,7 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
     uw_channels[index].frequency = frequency;
     uw_channels[index].dr_min = dr_min;
     uw_channels[index].dr_max = dr_max;
-    BIT_SET(uw_channels_mask, index);
+    uwan_enable_channel(index, true);
 
     return UWAN_ERR_NO;
 }

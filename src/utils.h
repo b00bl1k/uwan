@@ -37,6 +37,8 @@
 #define BIT_SET(x, i) x[i / BITS_PER_BYTE] |= (1 << (i % BITS_PER_BYTE))
 #define BIT_CLEAR(x, i) x[i / BITS_PER_BYTE] &= ~(1 << (i % BITS_PER_BYTE))
 
+#define MAX(x, y) (x < y ? y : x)
+
 void utils_random_init(uint32_t seed);
 uint32_t utils_get_random(uint32_t max);
 
