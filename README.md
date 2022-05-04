@@ -18,4 +18,4 @@ Simple and lightweight LoRaWAN messaging library in pure C.
 - pure C -> awesome
 - lightweight -> less bugs
 - unit tests -> less bugs
-- hardware absctraction -> run anywhere
+- hardware abstraction -> run anywhere

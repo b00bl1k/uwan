@@ -75,6 +75,59 @@
 #define SX126X_CMD_GET_STATS                    0x10
 #define SX126X_CMD_RESET_STATS                  0x00
 
+/* PacketType Definition */
+#define PACKET_TYPE_GFSK                        0x0
+#define PACKET_TYPE_LORA                        0x1
+
+/* RampTime Definition */
+#define SET_RAMP_10U                            0x00
+#define SET_RAMP_20U                            0x01
+#define SET_RAMP_40U                            0x02
+#define SET_RAMP_80U                            0x03
+#define SET_RAMP_200U                           0x04
+#define SET_RAMP_800U                           0x05
+#define SET_RAMP_1700U                          0x06
+#define SET_RAMP_3400U                          0x07
+
+#define SET_PA_CONFIG_DEV_SEL_SX1262            0x0
+#define SET_PA_CONFIG_DEV_SEL_SX1261            0x1
+
+/* LoRa® ModParam1 - SF */
+#define LORA_MOD_PARAM1_SF5                     0x05
+#define LORA_MOD_PARAM1_SF6                     0x06
+#define LORA_MOD_PARAM1_SF7                     0x07
+#define LORA_MOD_PARAM1_SF8                     0x08
+#define LORA_MOD_PARAM1_SF9                     0x09
+#define LORA_MOD_PARAM1_SF10                    0x0a
+#define LORA_MOD_PARAM1_SF11                    0x0b
+#define LORA_MOD_PARAM1_SF12                    0x0c
+
+/* LoRa® ModParam2 - BW */
+#define LORA_MOD_PARAM1_BW_7                    0x00
+#define LORA_MOD_PARAM2_BW_10                   0x08
+#define LORA_MOD_PARAM2_BW_15                   0x01
+#define LORA_MOD_PARAM2_BW_20                   0x09
+#define LORA_MOD_PARAM2_BW_31                   0x02
+#define LORA_MOD_PARAM2_BW_41                   0x0A
+#define LORA_MOD_PARAM2_BW_62                   0x03
+#define LORA_MOD_PARAM2_BW_125                  0x04
+#define LORA_MOD_PARAM2_BW_250                  0x05
+#define LORA_MOD_PARAM2_BW_500                  0x06
+
+/* LoRa® ModParam3 - CR */
+#define LORA_MOD_PARAM3_CR_4_5                  0x01
+#define LORA_MOD_PARAM3_CR_4_6                  0x02
+#define LORA_MOD_PARAM3_CR_4_7                  0x03
+#define LORA_MOD_PARAM3_CR_4_8                  0x04
+
+/* LoRa® ModParam4 - LowDataRateOptimize */
+#define LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_OFF     0x00
+#define LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_ON      0x01
+
+/* List of Registers */
+#define REG_LORA_SYNC_WORD_MSB                  0x0740
+#define REG_LORA_SYNC_WORD_LSB                  0x0741
+
 extern const struct radio_dev sx126x_dev;
 
 #endif /* ~__UWAN_DEVICE_SX126X_H__ */
