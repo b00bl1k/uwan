@@ -75,8 +75,8 @@ struct node_session {
     uint8_t app_key[UWAN_APP_KEY_SIZE];
     uint32_t dev_addr;
     uint32_t dev_nonce;
-    uint16_t f_cnt_up;
-    uint16_t f_cnt_down;
+    uint32_t f_cnt_up;
+    uint32_t f_cnt_down;
     uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
     uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
 };
@@ -323,7 +323,7 @@ void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
     memcpy(uw_session.app_key, app_key, UWAN_APP_KEY_SIZE);
 }
 
-void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
+void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key)
 {
     uw_session.dev_addr = dev_addr;

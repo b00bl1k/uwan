@@ -133,7 +133,7 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
 void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
     const uint8_t *app_key);
 
-void uwan_set_session(uint32_t dev_addr, uint16_t f_cnt_up, uint16_t f_cnt_down,
+void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
 
 /**
