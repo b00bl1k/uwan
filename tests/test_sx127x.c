@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,11 +31,20 @@
 #define LORA_PAGE_START 0x0d
 #define LORA_PAGE_END 0x3f
 
+static struct sx127x_reg *find_reg(uint8_t addr);
+static uint8_t *get_ptr_to_reg_value(uint8_t addr);
+
 struct sx127x_reg {
     uint8_t addr;
     uint8_t fsk_value;
     uint8_t lora_value;
 };
+
+struct {
+    uint8_t cmd;
+    uint8_t pos;
+    bool is_selected;
+} sx127x_state;
 
 struct sx127x_reg sx127x_regs[] = {
     /* Common Registers */
@@ -72,6 +81,42 @@ struct sx127x_reg sx127x_regs[] = {
     {SX127X_REG_FSK_IMAGE_CAL, IMAGE_CAL_RESET_VALUE, INVERT_IQ2_RESET_VALUE},
 };
 
+uint8_t hal_spi_xfer(uint8_t data)
+{
+    uint8_t return_val = 0xff;
+
+    if (!sx127x_state.is_selected)
+        return return_val;
+
+    if (sx127x_state.pos == 0) {
+        sx127x_state.cmd = data;
+    }
+    else {
+        bool is_write = (sx127x_state.cmd & SX127X_WNR) != 0;
+
+        uint8_t reg_addr = sx127x_state.cmd & ~SX127X_WNR;
+        if (reg_addr != SX127X_REG_FIFO)
+            reg_addr += sx127x_state.pos - 1;
+
+        uint8_t *reg_ptr = get_ptr_to_reg_value(reg_addr);
+        if (is_write)
+            *reg_ptr = data;
+        else
+            return_val = *reg_ptr;
+    }
+
+    sx127x_state.pos++;
+
+    return return_val;
+}
+
+void hal_select(bool enable)
+{
+    sx127x_state.is_selected = enable;
+    if (enable)
+        sx127x_state.pos = 0;
+}
+
 void hal_radio_reset(bool en)
 {
 }
@@ -81,7 +126,9 @@ void hal_delay_us(uint32_t us)
 }
 
 const struct radio_hal my_hal = {
+    .spi_xfer = hal_spi_xfer,
     .reset = hal_radio_reset,
+    .select = hal_select,
     .delay_us = hal_delay_us,
 };
 
@@ -111,30 +158,6 @@ static uint8_t *get_ptr_to_reg_value(uint8_t addr)
         return &reg->lora_value;
 
     return &reg->fsk_value;
-}
-
-void radio_write_reg(const struct radio_hal *hal, uint8_t addr, uint8_t data)
-{
-    uint8_t *value = get_ptr_to_reg_value(addr);
-    *value = data;
-}
-
-uint8_t radio_read_reg(const struct radio_hal *hal, uint8_t addr)
-{
-    uint8_t *value = get_ptr_to_reg_value(addr);
-    return *value;
-}
-
-void radio_write_array(const struct radio_hal *hal, uint8_t addr,
-    const uint8_t *buf, uint8_t size)
-{
-
-}
-
-void radio_read_array(const struct radio_hal *hal, uint8_t addr, uint8_t *buf,
-    uint8_t size)
-{
-
 }
 
 int main()

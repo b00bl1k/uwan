@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,9 @@
 #ifndef __UWAN_DEVICE_SX127X_H__
 #define __UWAN_DEVICE_SX127X_H__
 
-#include <uwan/device/radio.h>
+#include <uwan/stack.h>
+
+#define SX127X_WNR                              0x80
 
 /* Common Registers */
 #define SX127X_REG_FIFO                         0x00

@@ -13,7 +13,6 @@ set(TINYCRYPT_SRC
     ${TINYCRYPT_DIR}/lib/source/utils.c)
 
 set(LIB_SRC
-    ${SRC_DIR}/device/radio.c
     ${SRC_DIR}/device/sx127x.c
     ${SRC_DIR}/device/sx126x.c
     ${SRC_DIR}/channels.c
