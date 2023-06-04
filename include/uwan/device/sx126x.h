@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 #ifndef __UWAN_DEVICE_SX126X_H__
 #define __UWAN_DEVICE_SX126X_H__
 
-#include <uwan/device/radio.h>
+#include <uwan/stack.h>
 
 /* Commands Selecting the Operating Modes of the Radio */
 #define SX126X_CMD_SET_SLEEP                    0x84
@@ -47,7 +47,7 @@
 #define SX126X_CMD_WRITE_REGISTER               0x0d
 #define SX126X_CMD_READ_REGISTER                0x1d
 #define SX126X_CMD_WRITE_BUFFER                 0x0e
-#define SX126X_CMD_READ_BUFFER                  0x1d
+#define SX126X_CMD_READ_BUFFER                  0x1e
 /* DIO and IRQ Control */
 #define SX126X_CMD_SET_DIO_IRQ_PARAMS           0x08
 #define SX126X_CMD_GET_IRQ_STATUS               0x12
@@ -74,6 +74,12 @@
 #define SX126X_CMD_CLEAR_DEVICE_ERRORS          0x07
 #define SX126X_CMD_GET_STATS                    0x10
 #define SX126X_CMD_RESET_STATS                  0x00
+
+#define SLEEP_WAKE_UP_ON_RTC                    0x01
+#define SLEEP_WARM_START                        0x04
+
+#define STANDBY_CFG_RC                          0x00
+#define STANDBY_CFG_XOSC                        0x01
 
 /* PacketType Definition */
 #define PACKET_TYPE_GFSK                        0x0
@@ -127,6 +133,35 @@
 /* List of Registers */
 #define REG_LORA_SYNC_WORD_MSB                  0x0740
 #define REG_LORA_SYNC_WORD_LSB                  0x0741
+#define REG_OCP                                 0x08E7
+#define REG_XTA_TRIM                            0x0911
+#define REG_XTB_TRIM                            0x0912
+/* Workaround registers sx1261-2_v1.2.pdf chapter 15 */
+#define REG_IQ_POL_FIX                          0x0736
+#define REG_TX_CLAMP_CONFIG                     0x08D8
+#define REG_TIMER_CTRL                          0x0902 // TODO 0x0920 ?
+#define REG_TIMER_EVENT                         0x0944
+
+/* tcxoVoltage Configuration Definition */
+#define TCXO_VOLTAGE_1_6V                       0x00
+#define TCXO_VOLTAGE_1_7V                       0x01
+#define TCXO_VOLTAGE_1_8V                       0x02
+#define TCXO_VOLTAGE_2_2V                       0x03
+#define TCXO_VOLTAGE_2_4V                       0x04
+#define TCXO_VOLTAGE_2_7V                       0x05
+#define TCXO_VOLTAGE_3_0V                       0x06
+#define TCXO_VOLTAGE_3_3V                       0x07
+
+#define IRQ_MASK_TX_DONE                        0x0001 // All
+#define IRQ_MASK_RX_DONE                        0x0002 // All
+#define IRQ_MASK_PREAMBLE_DETECTED              0x0004 // All
+#define IRQ_MASK_SYNC_WORD_VALID                0x0008 // FSK
+#define IRQ_MASK_HEADER_VALID                   0x0010 // LoRa®
+#define IRQ_MASK_HEADER_ERR                     0x0020 // LoRa®
+#define IRQ_MASK_CRC_ERR                        0x0040 // All
+#define IRQ_MASK_CAD_DONE                       0x0080 // LoRa®
+#define IRQ_MASK_CAD_DETECTED                   0x0100 // LoRa®
+#define IRQ_MASK_TIMEOUT                        0x0200 // All
 
 extern const struct radio_dev sx126x_dev;
 

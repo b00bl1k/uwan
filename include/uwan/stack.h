@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -104,6 +104,7 @@ struct radio_hal {
     void (*reset)(bool enable);
     void (*select)(bool enable);
     void (*delay_us)(uint32_t us);
+    bool (*is_busy)(void); // only for sx126x
     void (*io_init)(void); // optional
     void (*io_deinit)(void); // optional
     void (*ant_sw_ctrl)(bool is_rx); // optional
