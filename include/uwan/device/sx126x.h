@@ -133,6 +133,10 @@
 /* List of Registers */
 #define REG_LORA_SYNC_WORD_MSB                  0x0740
 #define REG_LORA_SYNC_WORD_LSB                  0x0741
+#define REG_RANDOM_NUMBER_GEN_0                 0x0819
+#define REG_RANDOM_NUMBER_GEN_1                 0x081A
+#define REG_RANDOM_NUMBER_GEN_2                 0x081B
+#define REG_RANDOM_NUMBER_GEN_3                 0x081C
 #define REG_OCP                                 0x08E7
 #define REG_XTA_TRIM                            0x0911
 #define REG_XTB_TRIM                            0x0912

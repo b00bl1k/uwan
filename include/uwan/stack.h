@@ -117,7 +117,7 @@ struct radio_dev {
     bool (*set_power)(int8_t power);
     void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
     void (*tx)(const uint8_t *buf, uint8_t len);
-    void (*rx)(bool continous);
+    void (*rx)(bool continuous);
     uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
     uint32_t (*rand)(void);
     uint8_t (*handle_dio)(int dio_num);

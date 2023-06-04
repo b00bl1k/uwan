@@ -36,7 +36,7 @@ static void sx126x_set_freq(uint32_t freq);
 static bool sx126x_set_power(int8_t power);
 static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
 static void sx126x_tx(const uint8_t *buf, uint8_t len);
-static void sx126x_rx(bool continous);
+static void sx126x_rx(bool continuous);
 static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx126x_rand(void);
 static uint8_t sx126x_handle_dio(int dio_num);
@@ -113,8 +113,6 @@ static void check_device()
 
 static uint8_t read_register(uint16_t addr)
 {
-    uint8_t result;
-
     check_device();
 
     hal->select(true);
@@ -122,7 +120,7 @@ static uint8_t read_register(uint16_t addr)
     hal->spi_xfer(addr >> 8);
     hal->spi_xfer(addr & 0xff);
     hal->spi_xfer(0xff); // skip status
-    result = hal->spi_xfer(0xff);
+    uint8_t result = hal->spi_xfer(0xff);
     hal->select(false);
 
     return result;
@@ -142,13 +140,11 @@ static void write_register(uint16_t addr, uint8_t value)
 
 static uint8_t read_command(uint8_t cmd, void *buf, uint16_t size)
 {
-    uint8_t status;
-
     check_device();
 
     hal->select(true);
     hal->spi_xfer(cmd);
-    status = hal->spi_xfer(0xff);
+    uint8_t status = hal->spi_xfer(0xff);
     for (uint16_t i = 0; i < size; i++)
         ((uint8_t *)buf)[i] = hal->spi_xfer(0xff);
     hal->select(false);
@@ -165,6 +161,22 @@ static void write_command(uint8_t cmd, const void *buf, uint16_t size)
     for (uint16_t i = 0; i < size; i++)
         hal->spi_xfer(((const uint8_t *)buf)[i]);
     hal->select(false);
+}
+
+static uint8_t read_registers(uint16_t addr, uint8_t *values, uint16_t count)
+{
+    check_device();
+
+    hal->select(true);
+    hal->spi_xfer(SX126X_CMD_READ_REGISTER);
+    hal->spi_xfer(addr >> 8);
+    hal->spi_xfer(addr & 0xff);
+    uint8_t status = hal->spi_xfer(0xff);
+    for (uint16_t i = 0; i < count; i++)
+        values[i] = hal->spi_xfer(0xff);
+    hal->select(false);
+
+    return status;
 }
 
 static void write_registers(uint16_t addr, const uint8_t *values, uint16_t count)
@@ -194,14 +206,12 @@ static void write_buffer(uint8_t offset, const void *buf, uint16_t size)
 
 static uint8_t read_buffer(uint8_t offset, void *buf, uint16_t size)
 {
-    uint8_t status;
-
     check_device();
 
     hal->select(true);
     hal->spi_xfer(SX126X_CMD_READ_BUFFER);
     hal->spi_xfer(offset);
-    status = hal->spi_xfer(0xff);
+    uint8_t status = hal->spi_xfer(0xff);
     for (uint16_t i = 0; i < size; i++)
         ((uint8_t *)buf)[i] = hal->spi_xfer(0xff);
     hal->select(false);
@@ -385,7 +395,7 @@ static void sx126x_tx(const uint8_t *buf, uint8_t len)
     write_command(SX126X_CMD_SET_TX, timeout, sizeof(timeout));
 }
 
-static void sx126x_rx(bool continous)
+static void sx126x_rx(bool continuous)
 {
     set_packet_params(preamble_length, true, true, 0xff);
     uint8_t symb_num = preamble_length;
@@ -398,7 +408,7 @@ static void sx126x_rx(bool continous)
         hal->ant_sw_ctrl(true);
 
     uint8_t timeout[3];
-    if (continous) {
+    if (continuous) {
         timeout[0] = 0xff;
         timeout[1] = 0xff;
         timeout[2] = 0xff;
@@ -428,7 +438,13 @@ static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size)
 
 static uint32_t sx126x_rand()
 {
-    return 0; // TODO
+    uint32_t result;
+
+    sx126x_rx(true);
+    read_registers(REG_RANDOM_NUMBER_GEN_0, (uint8_t *)&result, sizeof(result));
+    sx126x_sleep();
+
+    return result;
 }
 
 static uint8_t sx126x_handle_dio(int dio_num)

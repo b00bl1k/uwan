@@ -31,7 +31,7 @@ static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
-static void sx127x_rx(bool continous);
+static void sx127x_rx(bool continuous);
 static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx127x_rand(void);
 static uint8_t sx127x_handle_dio(int dio_num);
@@ -323,7 +323,7 @@ static void sx127x_tx(const uint8_t *buf, uint8_t len)
     set_op_mode(OP_MODE_MODE_TX);
 }
 
-static void sx127x_rx(bool continous)
+static void sx127x_rx(bool continuous)
 {
     set_inverted_iq(true);
 
@@ -347,7 +347,7 @@ static void sx127x_rx(bool continous)
     if (hal->ant_sw_ctrl)
         hal->ant_sw_ctrl(true);
 
-    if (continous)
+    if (continuous)
         set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
     else
         set_op_mode(OP_MODE_MODE_RX_SINGLE);
