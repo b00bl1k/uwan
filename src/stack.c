@@ -305,11 +305,64 @@ static void handle_downlink(enum uwan_errs err)
     uw_stack_hal->downlink_callback(err, status);
 }
 
+static void evt_handler(uint8_t evt_mask)
+{
+    if (uw_state <= UWAN_STATE_IDLE)
+        return;
+
+    switch (uw_state) {
+    case UWAN_STATE_TX:
+        if (evt_mask & RADIO_IRQF_TX_DONE) {
+            uw_state = UWAN_STATE_RX1;
+            uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
+            uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
+        }
+        break;
+
+    case UWAN_STATE_RX1:
+        if (evt_mask & RADIO_IRQF_RX_TIMEOUT) {
+            // prepare radio for RX2
+            uw_state = UWAN_STATE_RX2;
+            const struct node_dr *dr = &uw_dr_table[uw_rx2_dr];
+            uw_radio->set_frequency(uw_rx2_frequency);
+            uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
+        }
+        else if (evt_mask & RADIO_IRQF_RX_DONE) {
+            uw_stack_hal->stop_timer(UWAN_TIMER_RX2);
+            uw_state = UWAN_STATE_IDLE;
+            if (evt_mask & RADIO_IRQF_CRC_ERROR)
+                handle_downlink(UWAN_ERR_RX_CRC);
+            else
+                handle_downlink(UWAN_ERR_NO);
+        }
+        break;
+
+    case UWAN_STATE_RX2:
+        if (evt_mask & RADIO_IRQF_RX_TIMEOUT) {
+            uw_state = UWAN_STATE_IDLE;
+            handle_downlink(UWAN_ERR_RX_TIMEOUT);
+        }
+        else if (evt_mask & RADIO_IRQF_RX_DONE) {
+            uw_state = UWAN_STATE_IDLE;
+            if (evt_mask & RADIO_IRQF_CRC_ERROR)
+                handle_downlink(UWAN_ERR_RX_CRC);
+            else
+                handle_downlink(UWAN_ERR_NO);
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack)
 {
     uw_state = UWAN_STATE_IDLE;
     uw_radio = radio;
     uw_stack_hal = stack;
+
+    radio->set_evt_handler(evt_handler);
 
     channels_init();
     utils_random_init(radio->rand());
@@ -441,55 +494,6 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_radio->tx(uw_frame, offset);
 
     return UWAN_ERR_NO;
-}
-
-void uwan_radio_dio_callback(int dio_num)
-{
-    if (uw_state <= UWAN_STATE_IDLE)
-        return;
-
-    uint8_t flags = uw_radio->handle_dio(dio_num);
-
-    switch (uw_state) {
-    case UWAN_STATE_TX:
-        if (flags & RADIO_IRQF_TX_DONE) {
-            uw_state = UWAN_STATE_RX1;
-            uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
-            uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
-        }
-        break;
-
-    case UWAN_STATE_RX1:
-        if (flags & RADIO_IRQF_RX_TIMEOUT) {
-            // prepare radio for RX2
-            uw_state = UWAN_STATE_RX2;
-            const struct node_dr *dr = &uw_dr_table[uw_rx2_dr];
-            uw_radio->set_frequency(uw_rx2_frequency);
-            uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
-        }
-        else if (flags & RADIO_IRQF_RX_DONE) {
-            // TODO handle_downlink(UWAN_ERR_RX_CRC);
-            uw_stack_hal->stop_timer(UWAN_TIMER_RX2);
-            uw_state = UWAN_STATE_IDLE;
-            handle_downlink(UWAN_ERR_NO);
-        }
-        break;
-
-    case UWAN_STATE_RX2:
-        if (flags & RADIO_IRQF_RX_TIMEOUT) {
-            uw_state = UWAN_STATE_IDLE;
-            handle_downlink(UWAN_ERR_RX_TIMEOUT);
-        }
-        else if (flags & RADIO_IRQF_RX_DONE) {
-            // TODO handle_downlink(UWAN_ERR_RX_CRC);
-            uw_state = UWAN_STATE_IDLE;
-            handle_downlink(UWAN_ERR_NO);
-        }
-        break;
-
-    default:
-        break;
-    }
 }
 
 void uwan_timer_callback(enum uwan_timer_ids timer_id)

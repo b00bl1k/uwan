@@ -97,6 +97,7 @@ enum radio_irq_flags {
     RADIO_IRQF_RX_TIMEOUT = 0x1,
     RADIO_IRQF_RX_DONE = 0x2,
     RADIO_IRQF_TX_DONE = 0x4,
+    RADIO_IRQF_CRC_ERROR = 0x8,
 };
 
 struct radio_hal {
@@ -120,7 +121,8 @@ struct radio_dev {
     void (*rx)(bool continuous);
     uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
     uint32_t (*rand)(void);
-    uint8_t (*handle_dio)(int dio_num);
+    void (*irq_handler)(void);
+    void (*set_evt_handler)(void (*handler)(uint8_t evt_mask));
 };
 
 struct stack_hal {
@@ -186,11 +188,6 @@ enum uwan_errs uwan_join(void);
  */
 enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uint8_t pld_len, bool confirm);
-
-/**
- * \brief Radio DIO callback
- */
-void uwan_radio_dio_callback(int dio_num);
 
 /**
  * \brief Timer callback

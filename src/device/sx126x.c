@@ -39,12 +39,15 @@ static void sx126x_tx(const uint8_t *buf, uint8_t len);
 static void sx126x_rx(bool continuous);
 static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx126x_rand(void);
-static uint8_t sx126x_handle_dio(int dio_num);
+static void sx126x_irq_handler(void);
+static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
 
 /* private pointer to actual HAL */
 static const struct radio_hal *hal;
+
 static bool is_sleep;
 static uint16_t preamble_length;
+static void (*user_evt_handler)(uint8_t evt_mask);
 
 /* export radio driver */
 const struct radio_dev sx126x_dev = {
@@ -57,7 +60,8 @@ const struct radio_dev sx126x_dev = {
     .rx = sx126x_rx,
     .read_fifo = sx126x_read_fifo,
     .rand = sx126x_rand,
-    .handle_dio = sx126x_handle_dio,
+    .irq_handler = sx126x_irq_handler,
+    .set_evt_handler = sx126x_set_evt_handler,
 };
 
 /* lookup table for spreading factor */
@@ -240,11 +244,6 @@ static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq
     write_command(SX126X_CMD_SET_PACKET_PARAMS, params, sizeof(params));
 }
 
-static void set_standby(uint8_t cfg)
-{
-    write_command(SX126X_CMD_SET_STANDBY, &cfg, sizeof(cfg));
-}
-
 static bool sx126x_init(const struct radio_hal *r_hal)
 {
     hal = r_hal;
@@ -302,6 +301,10 @@ static void sx126x_sleep()
 {
     const uint8_t sleep_conf = SLEEP_WARM_START;
     write_command(SX126X_CMD_SET_SLEEP, &sleep_conf, sizeof(sleep_conf));
+
+    if (hal->io_deinit)
+        hal->io_deinit();
+
     hal->delay_us(1000);
     is_sleep = true;
 }
@@ -376,7 +379,10 @@ static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
         mod_param[3] = LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_OFF;
     write_command(SX126X_CMD_SET_MODULATION_PARAMS, mod_param, sizeof(mod_param));
 
-    preamble_length = (sf >= UWAN_SF_10) ? 0x05 : 0x08;
+    preamble_length = 0x08;
+
+    if (hal->io_init)
+        hal->io_init();
 }
 
 static void sx126x_tx(const uint8_t *buf, uint8_t len)
@@ -447,7 +453,7 @@ static uint32_t sx126x_rand()
     return result;
 }
 
-static uint8_t sx126x_handle_dio(int dio_num)
+static void sx126x_irq_handler()
 {
     uint8_t buf[2];
 
@@ -457,19 +463,23 @@ static uint8_t sx126x_handle_dio(int dio_num)
     uint16_t flags = buf[0] << 8 | buf[1];
     uint8_t result = 0;
 
-    if (flags & IRQ_MASK_TX_DONE) {
+    if (flags & IRQ_MASK_TX_DONE)
         result |= RADIO_IRQF_TX_DONE;
-    }
 
-    if (flags & IRQ_MASK_RX_DONE) {
+    if (flags & IRQ_MASK_RX_DONE)
         result |= RADIO_IRQF_RX_DONE;
-    }
 
-    if (flags & IRQ_MASK_TIMEOUT) {
+    if (flags & IRQ_MASK_TIMEOUT)
         result |= RADIO_IRQF_RX_TIMEOUT;
-    }
 
-    // TODO CRC Error
+    if (flags & IRQ_MASK_CRC_ERR)
+        result |= RADIO_IRQF_CRC_ERROR;
 
-    return result;
+    if (user_evt_handler)
+        user_evt_handler(result);
+}
+
+static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask))
+{
+    user_evt_handler = handler;
 }
