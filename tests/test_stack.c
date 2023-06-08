@@ -38,6 +38,7 @@ static uint8_t radio_dio_irq;
 static enum uwan_errs app_err;
 static enum uwan_status app_status;
 static int app_downlink_callback_call_count;
+static void (*app_evt_handler)(uint8_t evt_mask);
 
 static const uint8_t dev_eui[] = {
     0x00, 0x01, 0x02, 0x03,
@@ -83,7 +84,7 @@ static void radio_tx(const uint8_t *buf, uint8_t len)
     radio_frame_size = len;
 }
 
-static void radio_rx(bool continuous)
+static void radio_rx(uint16_t symb_timeout, uint32_t timeout)
 {
 }
 
@@ -108,9 +109,15 @@ uint32_t utils_get_random(uint32_t max)
     return 0x01234567 % max;
 }
 
-static uint8_t radio_handle_dio(int dio_num)
+static void radio_irq_handler(void)
 {
-    return radio_dio_irq;
+    if (app_evt_handler)
+        app_evt_handler(radio_dio_irq);
+}
+
+static void radio_set_evt_handler(void (*handler)(uint8_t evt_mask))
+{
+    app_evt_handler = handler;
 }
 
 static const struct radio_dev radio = {
@@ -121,7 +128,8 @@ static const struct radio_dev radio = {
     .rx = radio_rx,
     .read_fifo = radio_read_fifo,
     .rand = radio_rand,
-    .handle_dio = radio_handle_dio,
+    .irq_handler = radio_irq_handler,
+    .set_evt_handler = radio_set_evt_handler,
 };
 
 void app_start_timer(enum uwan_timer_ids timer_id, uint32_t timeout_ms)
@@ -178,7 +186,7 @@ void test_join_successfull()
     assert(memcmp(join_request, radio_frame, radio_frame_size) == 0);
 
     radio_dio_irq = RADIO_IRQF_TX_DONE;
-    uwan_radio_dio_callback(0);
+    radio.irq_handler();
 
     uwan_timer_callback(UWAN_TIMER_RX1);
 
@@ -186,7 +194,7 @@ void test_join_successfull()
     memcpy(radio_frame, join_accept, radio_frame_size);
 
     radio_dio_irq = RADIO_IRQF_RX_DONE;
-    uwan_radio_dio_callback(0);
+    radio.irq_handler();
 
     assert(radio_sleep_call_count == 1);
     assert(app_downlink_callback_call_count == 1);

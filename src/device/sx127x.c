@@ -31,7 +31,7 @@ static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
 static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
-static void sx127x_rx(bool continuous);
+static void sx127x_rx(uint16_t symb_timeout, uint32_t timeout);
 static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx127x_rand(void);
 static void sx127x_irq_handler(void);
@@ -150,12 +150,9 @@ static void lora_set_modem_conf1(uint8_t bw, uint8_t cr, bool imp_header)
     write_reg(SX127X_REG_LR_MODEM_CONFIG1, conf);
 }
 
-static void lora_set_modem_conf2(uint8_t sf, bool crc_on, bool tx_cont,
-    uint16_t symb_timeout)
+static void lora_set_modem_conf2(uint8_t sf, bool crc_on, bool tx_cont)
 {
     uint8_t conf = sf;
-
-    conf |= ((symb_timeout >> 8) & _MODEM_CONFIG2_SYMB_TIMEOUT_MASK);
 
     if (crc_on) {
         conf |= MODEM_CONFIG2_RX_PAYLOAD_CRC_ON;
@@ -303,15 +300,11 @@ static void sx127x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
 {
     const bool imp_header = false;
     const bool crc_on = true;
-    uint16_t symb_timeout;
-
-    symb_timeout = (sf >= UWAN_SF_10) ? 0x05 : 0x08;
 
     set_op_mode(OP_MODE_MODE_STDBY);
 
     lora_set_modem_conf1(bw_table[bw], cr_table[cr], imp_header);
-    lora_set_modem_conf2(sf_table[sf], crc_on, false, symb_timeout);
-    write_reg(SX127X_REG_LR_SYMB_TIMEOUT_LSB, symb_timeout & 0xff);
+    lora_set_modem_conf2(sf_table[sf], crc_on, false);
 
     bool low_dr_opti = (sf >= UWAN_SF_11);
     lora_set_modem_conf3(low_dr_opti, true);
@@ -339,9 +332,15 @@ static void sx127x_tx(const uint8_t *buf, uint8_t len)
     set_op_mode(OP_MODE_MODE_TX);
 }
 
-static void sx127x_rx(bool continuous)
+static void sx127x_rx(uint16_t symb_timeout, uint32_t timeout)
 {
     set_inverted_iq(true);
+
+    uint8_t conf2 = read_reg(SX127X_REG_LR_MODEM_CONFIG2);
+    conf2 &= ~_MODEM_CONFIG2_SYMB_TIMEOUT_MASK;
+    conf2 |= (symb_timeout >> 8) & _MODEM_CONFIG2_SYMB_TIMEOUT_MASK;
+    write_reg(SX127X_REG_LR_MODEM_CONFIG2, conf2);
+    write_reg(SX127X_REG_LR_SYMB_TIMEOUT_LSB, symb_timeout & 0xff);
 
     write_reg(SX127X_REG_LR_FIFO_TX_BASE_ADDR, 0);
     write_reg(SX127X_REG_LR_FIFO_ADDR_PTR, 0);
@@ -363,10 +362,10 @@ static void sx127x_rx(bool continuous)
     if (hal->ant_sw_ctrl)
         hal->ant_sw_ctrl(true);
 
-    if (continuous)
-        set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
-    else
+    if (timeout == UWAN_RX_NO_TIMEOUT)
         set_op_mode(OP_MODE_MODE_RX_SINGLE);
+    else
+        set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
 }
 
 static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size)

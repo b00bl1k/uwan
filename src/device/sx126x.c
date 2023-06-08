@@ -36,7 +36,7 @@ static void sx126x_set_freq(uint32_t freq);
 static bool sx126x_set_power(int8_t power);
 static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
 static void sx126x_tx(const uint8_t *buf, uint8_t len);
-static void sx126x_rx(bool continuous);
+static void sx126x_rx(uint16_t symb_timeout, uint32_t timeout);
 static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx126x_rand(void);
 static void sx126x_irq_handler(void);
@@ -46,7 +46,6 @@ static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
 static const struct radio_hal *hal;
 
 static bool is_sleep;
-static uint16_t preamble_length;
 static void (*user_evt_handler)(uint8_t evt_mask);
 
 /* export radio driver */
@@ -379,15 +378,13 @@ static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
         mod_param[3] = LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_OFF;
     write_command(SX126X_CMD_SET_MODULATION_PARAMS, mod_param, sizeof(mod_param));
 
-    preamble_length = 0x08;
-
     if (hal->io_init)
         hal->io_init();
 }
 
 static void sx126x_tx(const uint8_t *buf, uint8_t len)
 {
-    set_packet_params(preamble_length, true, false, len);
+    set_packet_params(0x08, true, false, len);
 
     const uint8_t addr[] = {0x0, 0x0};
     write_command(SX126X_CMD_SET_BUFFER_BASE_ADDRESS, addr, sizeof(addr));
@@ -401,11 +398,10 @@ static void sx126x_tx(const uint8_t *buf, uint8_t len)
     write_command(SX126X_CMD_SET_TX, timeout, sizeof(timeout));
 }
 
-static void sx126x_rx(bool continuous)
+static void sx126x_rx(uint16_t symb_timeout, uint32_t timeout)
 {
-    set_packet_params(preamble_length, true, true, 0xff);
-    uint8_t symb_num = preamble_length;
-    write_command(SX126X_CMD_SET_LORA_SYMB_NUM_TIMEOUT, &symb_num, sizeof(symb_num));
+    set_packet_params(0x08, true, true, 0xff);
+    write_command(SX126X_CMD_SET_LORA_SYMB_NUM_TIMEOUT, &symb_timeout, 1);
 
     const uint8_t addr[] = {0x0, 0x0};
     write_command(SX126X_CMD_SET_BUFFER_BASE_ADDRESS, addr, sizeof(addr));
@@ -413,19 +409,14 @@ static void sx126x_rx(bool continuous)
     if (hal->ant_sw_ctrl)
         hal->ant_sw_ctrl(true);
 
-    uint8_t timeout[3];
-    if (continuous) {
-        timeout[0] = 0xff;
-        timeout[1] = 0xff;
-        timeout[2] = 0xff;
+    uint8_t tmo[3];
+    if (timeout != UWAN_RX_NO_TIMEOUT && timeout != UWAN_RX_INFINITE) {
+        timeout <<= 6;
     }
-    else {
-        uint32_t tm = 3000 << 6; // TODO
-        timeout[0] = tm >> 16;
-        timeout[1] = tm >> 8;
-        timeout[2] = tm;
-    }
-    write_command(SX126X_CMD_SET_RX, timeout, sizeof(timeout));
+    tmo[0] = timeout >> 16;
+    tmo[1] = timeout >> 8;
+    tmo[2] = timeout;
+    write_command(SX126X_CMD_SET_RX, tmo, sizeof(tmo));
 }
 
 static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size)
@@ -446,7 +437,7 @@ static uint32_t sx126x_rand()
 {
     uint32_t result;
 
-    sx126x_rx(true);
+    sx126x_rx(0x00, UWAN_RX_INFINITE);
     read_registers(REG_RANDOM_NUMBER_GEN_0, (uint8_t *)&result, sizeof(result));
     sx126x_sleep();
 

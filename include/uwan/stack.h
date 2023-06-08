@@ -34,6 +34,9 @@
 #define UWAN_NWK_S_KEY_SIZE 16
 #define UWAN_APP_S_KEY_SIZE 16
 
+#define UWAN_RX_NO_TIMEOUT 0
+#define UWAN_RX_INFINITE 0xffffff
+
 #define LORAWAN_SYNC_WORD 0x34
 
 enum uwan_sf {
@@ -118,7 +121,7 @@ struct radio_dev {
     bool (*set_power)(int8_t power);
     void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
     void (*tx)(const uint8_t *buf, uint8_t len);
-    void (*rx)(bool continuous);
+    void (*rx)(uint16_t symb_timeout, uint32_t timeout);
     uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
     uint32_t (*rand)(void);
     void (*irq_handler)(void);

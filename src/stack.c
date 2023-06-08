@@ -61,6 +61,8 @@
 
 #define MIC_LEN 4
 
+#define RX_SYMB_TIMEOUT 0x08
+
 enum stack_states {
     UWAN_STATE_NOT_INIT,
     UWAN_STATE_IDLE,
@@ -499,9 +501,9 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 void uwan_timer_callback(enum uwan_timer_ids timer_id)
 {
     if (uw_state == UWAN_STATE_RX1 && timer_id == UWAN_TIMER_RX1) {
-        uw_radio->rx(false);
+        uw_radio->rx(RX_SYMB_TIMEOUT, 0);
     }
     else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2) {
-        uw_radio->rx(false);
+        uw_radio->rx(RX_SYMB_TIMEOUT, 0);
     }
 }
