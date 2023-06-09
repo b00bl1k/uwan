@@ -163,12 +163,21 @@ static uint8_t *get_ptr_to_reg_value(uint8_t addr)
 int main()
 {
     uint8_t payload[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    struct uwan_packet_params pkt_params;
 
     assert(sx127x_dev.init(&my_hal));
 
     sx127x_dev.set_frequency(868900000);
     sx127x_dev.set_power(14);
-    sx127x_dev.setup(UWAN_SF_12, UWAN_BW_125, UWAN_CR_4_5);
+
+    pkt_params.sf = UWAN_SF_12;
+    pkt_params.bw = UWAN_BW_125;
+    pkt_params.cr = UWAN_CR_4_5;
+    pkt_params.preamble_len = 8;
+    pkt_params.crc_on = true;
+    pkt_params.inverted_iq = false;
+    pkt_params.implicit_header = false;
+    sx127x_dev.setup(&pkt_params);
     sx127x_dev.tx(payload, sizeof(payload));
 
     // see Semtech AN1200.24 p2.1

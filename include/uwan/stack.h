@@ -114,14 +114,24 @@ struct radio_hal {
     void (*ant_sw_ctrl)(bool is_rx); // optional
 };
 
+struct uwan_packet_params {
+    enum uwan_sf sf;
+    enum uwan_bw bw;
+    enum uwan_cr cr;
+    uint16_t preamble_len;
+    bool crc_on;
+    bool inverted_iq;
+    bool implicit_header;
+};
+
 struct radio_dev {
     bool (*init)(const struct radio_hal *hal);
     void (*sleep)(void);
     void (*set_frequency)(uint32_t frequency);
     bool (*set_power)(int8_t power);
-    void (*setup)(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
+    void (*setup)(const struct uwan_packet_params *params);
     void (*tx)(const uint8_t *buf, uint8_t len);
-    void (*rx)(uint16_t symb_timeout, uint32_t timeout);
+    void (*rx)(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
     uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
     uint32_t (*rand)(void);
     void (*irq_handler)(void);

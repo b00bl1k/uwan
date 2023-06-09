@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -71,11 +71,11 @@ static void radio_sleep(void)
     radio_sleep_call_count++;
 }
 
-static void radio_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
+static void radio_setup(const struct uwan_packet_params *params)
 {
-    radio_sf = sf;
-    radio_bw = bw;
-    radio_cr = cr;
+    radio_sf = params->sf;
+    radio_bw = params->bw;
+    radio_cr = params->cr;
 }
 
 static void radio_tx(const uint8_t *buf, uint8_t len)
@@ -84,7 +84,7 @@ static void radio_tx(const uint8_t *buf, uint8_t len)
     radio_frame_size = len;
 }
 
-static void radio_rx(uint16_t symb_timeout, uint32_t timeout)
+static void radio_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
 {
 }
 

@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -100,6 +100,7 @@ static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
 
 static const struct radio_dev *uw_radio;
 static const struct stack_hal *uw_stack_hal;
+static struct uwan_packet_params pkt_params;
 static struct node_session uw_session;
 static uint8_t uw_frame[255];
 static uint8_t uw_frame_size;
@@ -318,6 +319,9 @@ static void evt_handler(uint8_t evt_mask)
             uw_state = UWAN_STATE_RX1;
             uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
             uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
+
+            pkt_params.inverted_iq = true;
+            uw_radio->setup(&pkt_params);
         }
         break;
 
@@ -326,8 +330,11 @@ static void evt_handler(uint8_t evt_mask)
             // prepare radio for RX2
             uw_state = UWAN_STATE_RX2;
             const struct node_dr *dr = &uw_dr_table[uw_rx2_dr];
+            pkt_params.sf = dr->sf;
+            pkt_params.bw = dr->bw;
+            pkt_params.inverted_iq = true;
             uw_radio->set_frequency(uw_rx2_frequency);
-            uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
+            uw_radio->setup(&pkt_params);
         }
         else if (evt_mask & RADIO_IRQF_RX_DONE) {
             uw_stack_hal->stop_timer(UWAN_TIMER_RX2);
@@ -368,6 +375,11 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack)
 
     channels_init();
     utils_random_init(radio->rand());
+
+    pkt_params.cr = UWAN_CR_4_5;
+    pkt_params.preamble_len = 8;
+    pkt_params.crc_on = true;
+    pkt_params.implicit_header = false;
 }
 
 void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
@@ -419,7 +431,11 @@ enum uwan_errs uwan_join()
 
     const struct node_dr *dr = &uw_dr_table[ch->dr_max];
     uw_radio->set_frequency(ch->frequency);
-    uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
+
+    pkt_params.sf = dr->sf;
+    pkt_params.bw = dr->bw;
+    pkt_params.inverted_iq = false;
+    uw_radio->setup(&pkt_params);
 
     uw_is_joined = false;
     uw_mtype = MTYPE_JOIN_REQUEST;
@@ -460,8 +476,11 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
         return UWAN_ERR_CHANNEL;
 
     const struct node_dr *dr = &uw_dr_table[ch->dr_max];
+    pkt_params.sf = dr->sf;
+    pkt_params.bw = dr->bw;
+    pkt_params.inverted_iq = false;
     uw_radio->set_frequency(ch->frequency);
-    uw_radio->setup(dr->sf, dr->bw, UWAN_CR_4_5);
+    uw_radio->setup(&pkt_params);
 
     if (confirm)
         uw_mtype = MTYPE_CONF_DATA_UP;
@@ -501,9 +520,9 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 void uwan_timer_callback(enum uwan_timer_ids timer_id)
 {
     if (uw_state == UWAN_STATE_RX1 && timer_id == UWAN_TIMER_RX1) {
-        uw_radio->rx(RX_SYMB_TIMEOUT, 0);
+        uw_radio->rx(0xff, RX_SYMB_TIMEOUT, 0);
     }
     else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2) {
-        uw_radio->rx(RX_SYMB_TIMEOUT, 0);
+        uw_radio->rx(0xff, RX_SYMB_TIMEOUT, 0);
     }
 }

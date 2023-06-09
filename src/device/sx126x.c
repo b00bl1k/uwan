@@ -34,9 +34,9 @@ static bool sx126x_init(const struct radio_hal *r_hal);
 static void sx126x_sleep(void);
 static void sx126x_set_freq(uint32_t freq);
 static bool sx126x_set_power(int8_t power);
-static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr);
+static void sx126x_setup(const struct uwan_packet_params *params);
 static void sx126x_tx(const uint8_t *buf, uint8_t len);
-static void sx126x_rx(uint16_t symb_timeout, uint32_t timeout);
+static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
 static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size);
 static uint32_t sx126x_rand(void);
 static void sx126x_irq_handler(void);
@@ -47,6 +47,7 @@ static const struct radio_hal *hal;
 
 static bool is_sleep;
 static void (*user_evt_handler)(uint8_t evt_mask);
+static struct uwan_packet_params pkt_params;
 
 /* export radio driver */
 const struct radio_dev sx126x_dev = {
@@ -223,7 +224,7 @@ static uint8_t read_buffer(uint8_t offset, void *buf, uint16_t size)
 }
 
 static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq,
-    uint8_t len)
+    bool implicit_header, uint8_t len)
 {
     // sx1261-2_v1.2.pdf chapter 15.4
     uint8_t reg = read_register(REG_IQ_POL_FIX);
@@ -234,13 +235,18 @@ static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq
     write_register(REG_IQ_POL_FIX, reg);
 
     uint8_t params[6];
-    params[0] = preamb_len >> 8; // tx only
+    params[0] = preamb_len >> 8;
     params[1] = preamb_len & 0xff;
-    params[2] = 0x0; // Variable length packet (explicit header)
+    params[2] = implicit_header ? 0x01 : 0x0;
     params[3] = len;
     params[4] = crc_on ? 0x01 : 0x00;
     params[5] = inverted_iq ? 0x01 : 0x00;
     write_command(SX126X_CMD_SET_PACKET_PARAMS, params, sizeof(params));
+}
+
+static void set_modulation_params(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
+{
+
 }
 
 static bool sx126x_init(const struct radio_hal *r_hal)
@@ -365,18 +371,20 @@ static bool sx126x_set_power(int8_t power)
     return true;
 }
 
-static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
+static void sx126x_setup(const struct uwan_packet_params *params)
 {
     uint8_t mod_param[4];
 
-    mod_param[0] = sf_table[sf];
-    mod_param[1] = bw_table[bw];
-    mod_param[2] = cr_table[cr];
-    if (sf >= UWAN_SF_11)
+    mod_param[0] = sf_table[params->sf];
+    mod_param[1] = bw_table[params->bw];
+    mod_param[2] = cr_table[params->cr];
+    if (params->sf >= UWAN_SF_11)
         mod_param[3] = LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_ON;
     else
         mod_param[3] = LORA_MOD_PARAM4_LOW_DR_OPTIMIZE_OFF;
     write_command(SX126X_CMD_SET_MODULATION_PARAMS, mod_param, sizeof(mod_param));
+
+    pkt_params = *params;
 
     if (hal->io_init)
         hal->io_init();
@@ -384,7 +392,8 @@ static void sx126x_setup(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
 
 static void sx126x_tx(const uint8_t *buf, uint8_t len)
 {
-    set_packet_params(0x08, true, false, len);
+    set_packet_params(pkt_params.preamble_len, pkt_params.crc_on,
+        pkt_params.inverted_iq, pkt_params.implicit_header, len);
 
     const uint8_t addr[] = {0x0, 0x0};
     write_command(SX126X_CMD_SET_BUFFER_BASE_ADDRESS, addr, sizeof(addr));
@@ -398,9 +407,11 @@ static void sx126x_tx(const uint8_t *buf, uint8_t len)
     write_command(SX126X_CMD_SET_TX, timeout, sizeof(timeout));
 }
 
-static void sx126x_rx(uint16_t symb_timeout, uint32_t timeout)
+static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
 {
-    set_packet_params(0x08, true, true, 0xff);
+    set_packet_params(pkt_params.preamble_len, pkt_params.crc_on,
+        pkt_params.inverted_iq, pkt_params.implicit_header, len);
+
     write_command(SX126X_CMD_SET_LORA_SYMB_NUM_TIMEOUT, &symb_timeout, 1);
 
     const uint8_t addr[] = {0x0, 0x0};
@@ -437,7 +448,7 @@ static uint32_t sx126x_rand()
 {
     uint32_t result;
 
-    sx126x_rx(0x00, UWAN_RX_INFINITE);
+    sx126x_rx(0xff, 0x00, UWAN_RX_INFINITE);
     read_registers(REG_RANDOM_NUMBER_GEN_0, (uint8_t *)&result, sizeof(result));
     sx126x_sleep();
 
