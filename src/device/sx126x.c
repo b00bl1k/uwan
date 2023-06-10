@@ -244,11 +244,6 @@ static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq
     write_command(SX126X_CMD_SET_PACKET_PARAMS, params, sizeof(params));
 }
 
-static void set_modulation_params(enum uwan_sf sf, enum uwan_bw bw, enum uwan_cr cr)
-{
-
-}
-
 static bool sx126x_init(const struct radio_hal *r_hal)
 {
     hal = r_hal;
