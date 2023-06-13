@@ -1,6 +1,7 @@
 set(TESTS
     channels
     sx127x
+    sx126x
     stack)
 
 foreach(test ${TESTS})
