@@ -60,7 +60,7 @@
 #define JOIN_ACCEPT_DELAY2 6000
 
 #define MIC_LEN 4
-
+#define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
 
 enum stack_states {
@@ -102,7 +102,7 @@ static const struct radio_dev *uw_radio;
 static const struct stack_hal *uw_stack_hal;
 static struct uwan_packet_params pkt_params;
 static struct node_session uw_session;
-static uint8_t uw_frame[255];
+static uint8_t uw_frame[FRAME_MAX_SIZE];
 static uint8_t uw_frame_size;
 static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
 static uint32_t uw_rx1_delay;
@@ -408,7 +408,7 @@ bool uwan_is_joined()
 
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
 {
-    if (dr < UWAN_DR_0 || dr >= UWAN_DR_COUNT)
+    if (dr >= UWAN_DR_COUNT)
         return UWAN_ERR_DATARATE;
 
     uw_rx2_frequency = frequency;
@@ -520,9 +520,9 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 void uwan_timer_callback(enum uwan_timer_ids timer_id)
 {
     if (uw_state == UWAN_STATE_RX1 && timer_id == UWAN_TIMER_RX1) {
-        uw_radio->rx(0xff, RX_SYMB_TIMEOUT, 0);
+        uw_radio->rx(FRAME_MAX_SIZE, RX_SYMB_TIMEOUT, 0);
     }
     else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2) {
-        uw_radio->rx(0xff, RX_SYMB_TIMEOUT, 0);
+        uw_radio->rx(FRAME_MAX_SIZE, RX_SYMB_TIMEOUT, 0);
     }
 }

@@ -87,7 +87,7 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
 {
     if (index >= MAX_CHANNELS)
         return UWAN_ERR_CHANNEL;
-    if (dr_min > dr_max || dr_min < UWAN_DR_0 || dr_max >= UWAN_DR_COUNT)
+    if (dr_min > dr_max || dr_max >= UWAN_DR_COUNT)
         return UWAN_ERR_DATARATE;
 
     uw_channels[index].frequency = frequency;
