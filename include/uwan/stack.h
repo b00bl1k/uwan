@@ -37,7 +37,10 @@
 #define UWAN_RX_NO_TIMEOUT 0
 #define UWAN_RX_INFINITE 0xffffff
 
-#define LORAWAN_SYNC_WORD 0x34
+#define LORAWAN_PUBLIC_SYNC_WORD_MSB 0x34
+#define LORAWAN_PUBLIC_SYNC_WORD_LSB 0x44
+#define LORAWAN_PRIVATE_SYNC_WORD_MSB 0x14
+#define LORAWAN_PRIVATE_SYNC_WORD_LSB 0x24
 
 enum uwan_sf {
     UWAN_SF_6,
@@ -129,6 +132,7 @@ struct radio_dev {
     void (*sleep)(void);
     void (*set_frequency)(uint32_t frequency);
     bool (*set_power)(int8_t power);
+    void (*set_public_network)(bool is_public);
     void (*setup)(const struct uwan_packet_params *params);
     void (*tx)(const uint8_t *buf, uint8_t len);
     void (*rx)(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
