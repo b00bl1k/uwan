@@ -34,6 +34,7 @@ static bool sx126x_init(const struct radio_hal *r_hal);
 static void sx126x_sleep(void);
 static void sx126x_set_freq(uint32_t freq);
 static bool sx126x_set_power(int8_t power);
+static void sx126x_set_public_network(bool is_public);
 static void sx126x_setup(const struct uwan_packet_params *params);
 static void sx126x_tx(const uint8_t *buf, uint8_t len);
 static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
@@ -55,6 +56,7 @@ const struct radio_dev sx126x_dev = {
     .sleep = sx126x_sleep,
     .set_frequency = sx126x_set_freq,
     .set_power = sx126x_set_power,
+    .set_public_network = sx126x_set_public_network,
     .setup = sx126x_setup,
     .tx = sx126x_tx,
     .rx = sx126x_rx,
@@ -281,8 +283,7 @@ static bool sx126x_init(const struct radio_hal *r_hal)
     const uint8_t packet_type = PACKET_TYPE_LORA;
     write_command(SX126X_CMD_SET_PACKET_TYPE, &packet_type, sizeof(packet_type));
 
-    uint8_t sync_word[] = {0x34, 0x44}; // TODO public
-    write_registers(REG_LORA_SYNC_WORD_MSB, sync_word, sizeof(sync_word));
+    sx126x_set_public_network(true);
 
     const uint16_t mask = IRQ_MASK_TX_DONE | IRQ_MASK_RX_DONE
         | IRQ_MASK_CRC_ERR | IRQ_MASK_TIMEOUT;
@@ -359,11 +360,27 @@ static bool sx126x_set_power(int8_t power)
         write_register(REG_OCP, 0x38); // for wle
     }
 
-    uint8_t tx_params[] = {power, SET_RAMP_200U};
+    uint8_t tx_params[] = {power, SET_RAMP_40U};
     write_command(SX126X_CMD_SET_PA_CONFIG, pa_conf, sizeof(pa_conf));
     write_command(SX126X_CMD_SET_TX_PARAMS, tx_params, sizeof(tx_params));
 
     return true;
+}
+
+static void sx126x_set_public_network(bool is_public)
+{
+    uint8_t sync_word[2];
+
+    if (is_public) {
+        sync_word[0] = LORAWAN_PUBLIC_SYNC_WORD_MSB;
+        sync_word[1] = LORAWAN_PUBLIC_SYNC_WORD_LSB;
+    }
+    else {
+        sync_word[0] = LORAWAN_PRIVATE_SYNC_WORD_MSB;
+        sync_word[1] = LORAWAN_PRIVATE_SYNC_WORD_LSB;
+    }
+
+    write_registers(REG_LORA_SYNC_WORD_MSB, sync_word, sizeof(sync_word));
 }
 
 static void sx126x_setup(const struct uwan_packet_params *params)

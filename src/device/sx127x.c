@@ -29,6 +29,7 @@ static bool sx127x_init(const struct radio_hal *r_hal);
 static void sx127x_sleep(void);
 static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
+static void sx127x_set_public_network(bool is_public);
 static void sx127x_setup(const struct uwan_packet_params *params);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
 static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
@@ -74,6 +75,7 @@ const struct radio_dev sx127x_dev = {
     .sleep = sx127x_sleep,
     .set_frequency = sx127x_set_freq,
     .set_power = sx127x_set_power,
+    .set_public_network = sx127x_set_public_network,
     .setup = sx127x_setup,
     .tx = sx127x_tx,
     .rx = sx127x_rx,
@@ -238,7 +240,7 @@ static bool sx127x_init(const struct radio_hal *r_hal)
     mode = OP_MODE_LONG_RANGE_MODE_ON | OP_MODE_MODE_SLEEP;
     write_reg(SX127X_REG_OP_MODE, mode);
 
-    write_reg(SX127X_REG_LR_SYNC_WORD, LORAWAN_SYNC_WORD);
+    sx127x_set_public_network(true);
     write_reg(SX127X_REG_PA_RAMP, PA_RAMP_PA_RAMP_50US);
 
     uint8_t lna = LNA_LNA_GAIN_G1 | LNA_LNA_BOOST_HF_BOOST;
@@ -294,6 +296,14 @@ static bool sx127x_set_power(int8_t power)
     write_reg(SX127X_REG_PA_CONFIG, pa_conf);
 
     return true;
+}
+
+static void sx127x_set_public_network(bool is_public)
+{
+    if (is_public)
+        write_reg(SX127X_REG_LR_SYNC_WORD, LORAWAN_PUBLIC_SYNC_WORD_MSB);
+    else
+        write_reg(SX127X_REG_LR_SYNC_WORD, LORAWAN_PRIVATE_SYNC_WORD_MSB);
 }
 
 static void sx127x_setup(const struct uwan_packet_params *params)
