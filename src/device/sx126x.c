@@ -38,7 +38,8 @@ static void sx126x_set_public_network(bool is_public);
 static void sx126x_setup(const struct uwan_packet_params *params);
 static void sx126x_tx(const uint8_t *buf, uint8_t len);
 static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
-static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size);
+static uint8_t sx126x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
+    int8_t *snr);
 static uint32_t sx126x_rand(void);
 static void sx126x_irq_handler(void);
 static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
@@ -60,7 +61,7 @@ const struct radio_dev sx126x_dev = {
     .setup = sx126x_setup,
     .tx = sx126x_tx,
     .rx = sx126x_rx,
-    .read_fifo = sx126x_read_fifo,
+    .read_packet = sx126x_read_packet,
     .rand = sx126x_rand,
     .irq_handler = sx126x_irq_handler,
     .set_evt_handler = sx126x_set_evt_handler,
@@ -442,16 +443,21 @@ static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
     write_command(SX126X_CMD_SET_RX, tmo, sizeof(tmo));
 }
 
-static uint8_t sx126x_read_fifo(uint8_t *buf, uint8_t buf_size)
+static uint8_t sx126x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
+    int8_t *snr)
 {
     uint8_t buf_status[2];
-
     read_command(SX126X_CMD_GET_RX_BUFFER_STATUS, buf_status, sizeof(buf_status));
 
-    uint8_t actual_len = buf_size > buf_status[0] ? buf_status[0] : buf_size;
+    uint16_t actual_len = buf_size > buf_status[0] ? buf_status[0] : buf_size;
     uint8_t offset = buf_status[1];
-
     read_buffer(offset, buf, actual_len);
+
+    uint8_t pkt_status[3];
+    read_command(SX126X_CMD_GET_PACKET_STATUS, pkt_status, sizeof(pkt_status));
+
+    *rssi = -pkt_status[0] / 2;
+    *snr = (int8_t)pkt_status[1] / 4;
 
     return actual_len;
 }

@@ -136,7 +136,8 @@ struct radio_dev {
     void (*setup)(const struct uwan_packet_params *params);
     void (*tx)(const uint8_t *buf, uint8_t len);
     void (*rx)(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
-    uint8_t (*read_fifo)(uint8_t *buf, uint8_t buf_size);
+    uint8_t (*read_packet)(void *buf, uint8_t buf_size, int16_t *rssi,
+        int8_t *snr);
     uint32_t (*rand)(void);
     void (*irq_handler)(void);
     void (*set_evt_handler)(void (*handler)(uint8_t evt_mask));
@@ -148,11 +149,33 @@ struct stack_hal {
     void (*downlink_callback)(enum uwan_errs err, enum uwan_status status);
 };
 
+/**
+ * \brief Initialize stack
+ *
+ * \param pointer to radio device (sx127x_dev or sx126x_dev)
+ * \param pointer to hal for stack
+ */
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
 
+/**
+ * \brief Set keys for OTAA activation
+ *
+ * \param dev_eui pointer to device EUI
+ * \param app_eui pointer to application EUI
+ * \param app_key pointer to application key
+ */
 void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
     const uint8_t *app_key);
 
+/**
+ * \brief Set keys for ABP activation
+ *
+ * \param dev_addr device address
+ * \param f_cnt_up uplink fCnt
+ * \param f_cnt_down downlinks fCnt
+ * \param nwk_s_key pointer to network session key
+ * \param app_s_key pointer to application session key
+ */
 void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
 

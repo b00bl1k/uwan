@@ -88,7 +88,8 @@ static void radio_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
 {
 }
 
-static uint8_t radio_read_fifo(uint8_t *buf, uint8_t buf_size)
+static uint8_t radio_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
+    int8_t *snr)
 {
     uint8_t size = buf_size < radio_frame_size ? buf_size : radio_frame_size;
     memcpy(buf, radio_frame, size);
@@ -126,7 +127,7 @@ static const struct radio_dev radio = {
     .setup = radio_setup,
     .tx = radio_tx,
     .rx = radio_rx,
-    .read_fifo = radio_read_fifo,
+    .read_packet = radio_read_packet,
     .rand = radio_rand,
     .irq_handler = radio_irq_handler,
     .set_evt_handler = radio_set_evt_handler,

@@ -71,6 +71,8 @@
 #define SX127X_REG_LR_IRQ_FLAGS_MASK            0x11
 #define SX127X_REG_LR_IRQ_FLAGS                 0x12
 #define SX127X_REG_LR_FIFO_RX_BYTES_NB          0x13
+#define SX127X_REG_LR_PACKET_SNR                0x19
+#define SX127X_REG_LR_PACKET_RSSI               0x1A
 #define SX127X_REG_LR_MODEM_CONFIG1             0x1d
 #define SX127X_REG_LR_MODEM_CONFIG2             0x1e
 #define SX127X_REG_LR_SYMB_TIMEOUT_LSB          0x1f

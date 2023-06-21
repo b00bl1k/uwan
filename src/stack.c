@@ -103,7 +103,6 @@ static const struct stack_hal *uw_stack_hal;
 static struct uwan_packet_params pkt_params;
 static struct node_session uw_session;
 static uint8_t uw_frame[FRAME_MAX_SIZE];
-static uint8_t uw_frame_size;
 static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
 static uint32_t uw_rx1_delay;
 static uint32_t uw_rx2_delay;
@@ -282,16 +281,20 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size)
 static void handle_downlink(enum uwan_errs err)
 {
     enum uwan_status status = UWAN_ST_NO;
+    uint8_t frame_size = 0;
+    int16_t rssi = 0;
+    int8_t snr = 0;
 
     if (err == UWAN_ERR_NO) {
-        uw_frame_size = uw_radio->read_fifo(uw_frame, sizeof(uw_frame));
+        frame_size = uw_radio->read_packet(uw_frame,
+            sizeof(uw_frame), &rssi, &snr);
     }
 
     uw_radio->sleep();
 
     if (uw_mtype == MTYPE_JOIN_REQUEST) {
         if (err == UWAN_ERR_NO)
-            err = handle_join_msg(uw_frame, uw_frame_size);
+            err = handle_join_msg(uw_frame, frame_size);
 
         if (err == UWAN_ERR_NO) {
             uw_is_joined = true;
@@ -302,7 +305,8 @@ static void handle_downlink(enum uwan_errs err)
         }
     }
     else {
-        err = handle_data_msg(uw_frame, uw_frame_size);
+        if (err == UWAN_ERR_NO)
+            err = handle_data_msg(uw_frame, frame_size);
     }
 
     uw_stack_hal->downlink_callback(err, status);

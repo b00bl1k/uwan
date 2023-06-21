@@ -33,7 +33,8 @@ static void sx127x_set_public_network(bool is_public);
 static void sx127x_setup(const struct uwan_packet_params *params);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
 static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
-static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size);
+static uint8_t sx127x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
+    int8_t *snr);
 static uint32_t sx127x_rand(void);
 static void sx127x_irq_handler(void);
 static void sx127x_set_evt_handler(void (*handler)(uint8_t evt_mask));
@@ -67,6 +68,7 @@ static const uint8_t cr_table[] = {
 /* private pointer to actual HAL */
 static const struct radio_hal *hal;
 
+static int16_t rssi_offset;
 static void (*user_evt_handler)(uint8_t evt_mask);
 
 /* export radio driver */
@@ -79,7 +81,7 @@ const struct radio_dev sx127x_dev = {
     .setup = sx127x_setup,
     .tx = sx127x_tx,
     .rx = sx127x_rx,
-    .read_fifo = sx127x_read_fifo,
+    .read_packet = sx127x_read_packet,
     .rand = sx127x_rand,
     .irq_handler = sx127x_irq_handler,
     .set_evt_handler = sx127x_set_evt_handler,
@@ -287,10 +289,12 @@ static bool sx127x_set_power(int8_t power)
         pa_conf = PA_CONFIG_PA_SELECT_RFO;
         pa_conf |= (pmax << _PA_CONFIG_MAX_POWER_SHIFT);
         pa_conf |= ((uint8_t)power & _PA_CONFIG_OUTPUT_POWER_MASK);
+        rssi_offset = -164;
     }
     else {
         pa_conf = PA_CONFIG_PA_SELECT_PA_BOOST;
         pa_conf |= ((uint8_t)(power - 2) & _PA_CONFIG_OUTPUT_POWER_MASK);
+        rssi_offset = -157;
     }
 
     write_reg(SX127X_REG_PA_CONFIG, pa_conf);
@@ -374,7 +378,8 @@ static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
         set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
 }
 
-static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size)
+static uint8_t sx127x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
+    int8_t *snr)
 {
     uint8_t size, fifo_ptr;
 
@@ -388,6 +393,12 @@ static uint8_t sx127x_read_fifo(uint8_t *buf, uint8_t buf_size)
 
     if (size > 0)
         read_array(hal, SX127X_REG_FIFO, buf, size);
+
+    uint8_t snr_lsb = read_reg(SX127X_REG_LR_PACKET_SNR);
+    uint8_t rssi_lsb = read_reg(SX127X_REG_LR_PACKET_RSSI);
+
+    *rssi = rssi_offset + rssi_lsb;
+    *snr = (int8_t)snr_lsb / 4;
 
     return size;
 }
