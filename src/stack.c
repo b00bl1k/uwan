@@ -36,12 +36,6 @@
 #define MAJOR_OFFSET 0
 #define MAJOR_LORAWAN_R1 0x0
 
-#define MTYPE_JOIN_REQUEST 0x0
-#define MTYPE_JOIN_ACCEPT 0x1
-#define MTYPE_UNCONF_DATA_UP 0x2
-#define MTYPE_UNCONF_DATA_DOWN 0x3
-#define MTYPE_CONF_DATA_UP 0x4
-#define MTYPE_CONF_DATA_DOWN 0x5
 #define MTYPE_MASK 0x7
 #define MTYPE_OFFSET 5
 
@@ -59,6 +53,8 @@
 #define JOIN_ACCEPT_DELAY1 5000
 #define JOIN_ACCEPT_DELAY2 6000
 
+#define B0_DIR_UPLINK 0
+#define B0_DIR_DOWNLINK 1
 #define MIC_LEN 4
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
@@ -107,7 +103,7 @@ static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
 static uint32_t uw_rx1_delay;
 static uint32_t uw_rx2_delay;
 static bool uw_is_joined;
-static uint8_t uw_mtype;
+static bool uw_is_join_state;
 
 /* Channel plan variables */
 static uint32_t uw_rx2_frequency;
@@ -117,14 +113,16 @@ static enum uwan_dr uw_rx2_dr;
 static struct tc_aes_key_sched_struct key_sched;
 static struct tc_cmac_struct cmac_state;
 
-static void encrypt_payload(uint8_t dir, uint8_t *buf, uint8_t size)
+static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
+    uint8_t dir)
 {
     uint8_t a_block[AES_BLOCK_SIZE];
     uint8_t s_block[AES_BLOCK_SIZE];
     uint8_t a_block_i = 1;
     uint8_t src_pos = 0;
+    uint32_t f_cnt = (dir) ? uw_session.f_cnt_down : uw_session.f_cnt_up;
 
-    tc_aes128_set_encrypt_key(&key_sched, uw_session.app_s_key);
+    tc_aes128_set_encrypt_key(&key_sched, key);
 
     // prepare Block Ai
     uint8_t pos = 0;
@@ -138,10 +136,10 @@ static void encrypt_payload(uint8_t dir, uint8_t *buf, uint8_t size)
     a_block[pos++] = (uw_session.dev_addr >> 8) & 0xff;
     a_block[pos++] = (uw_session.dev_addr >> 16) & 0xff;
     a_block[pos++] = (uw_session.dev_addr >> 24) & 0xff;
-    a_block[pos++] = uw_session.f_cnt_up & 0xff;
-    a_block[pos++] = (uw_session.f_cnt_up >> 8) & 0xff;
-    a_block[pos++] = 0x00;
-    a_block[pos++] = 0x00;
+    a_block[pos++] = f_cnt & 0xff;
+    a_block[pos++] = (f_cnt >> 8) & 0xff;
+    a_block[pos++] = (f_cnt >> 16) & 0xff;
+    a_block[pos++] = (f_cnt >> 24) & 0xff;
     a_block[pos++] = 0x00;
 
     for (; size > 0; a_block_i++) {
@@ -167,6 +165,7 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
     if (b0) {
         uint8_t block_b0[AES_BLOCK_SIZE];
         uint8_t pos = 0;
+        uint32_t f_cnt = (dir) ? uw_session.f_cnt_down : uw_session.f_cnt_up;
 
         block_b0[pos++] = 0x49;
         block_b0[pos++] = 0x00;
@@ -178,10 +177,10 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
         block_b0[pos++] = (uw_session.dev_addr >> 8) & 0xff;
         block_b0[pos++] = (uw_session.dev_addr >> 16) & 0xff;
         block_b0[pos++] = (uw_session.dev_addr >> 24) & 0xff;
-        block_b0[pos++] = uw_session.f_cnt_up & 0xff;
-        block_b0[pos++] = (uw_session.f_cnt_up >> 8) & 0xff;
-        block_b0[pos++] = 0x00;
-        block_b0[pos++] = 0x00;
+        block_b0[pos++] = f_cnt & 0xff;
+        block_b0[pos++] = (f_cnt >> 8) & 0xff;
+        block_b0[pos++] = (f_cnt >> 16) & 0xff;
+        block_b0[pos++] = (f_cnt >> 24) & 0xff;
         block_b0[pos++] = 0x00;
         block_b0[pos++] = msg_len;
 
@@ -231,7 +230,7 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
         return UWAN_ERR_MSG_LEN;
 
     mhdr = buf[offset++];
-    if (mhdr != ((MTYPE_JOIN_ACCEPT << MTYPE_OFFSET) |
+    if (mhdr != ((UWAN_MTYPE_JOIN_ACCEPT << MTYPE_OFFSET) |
                  (MAJOR_LORAWAN_R1 << MAJOR_OFFSET)))
         return UWAN_ERR_MSG_MHDR;
 
@@ -269,47 +268,104 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
     derive_session_key(uw_session.nwk_s_key, nwk, app_nonce, net_id);
     derive_session_key(uw_session.app_s_key, app, app_nonce, net_id);
 
+    uw_is_joined = true;
+
     return UWAN_ERR_NO;
 }
 
-static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size)
+static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
+    uint8_t *f_port, uint8_t **pld, uint8_t *pld_size)
 {
-    // TODO
+    uint8_t mhdr;
+    uint32_t dev_addr;
+    uint8_t f_ctrl;
+    uint16_t f_cnt;
+    uint8_t f_opts_len;
+    uint8_t mic[MIC_LEN];
+    uint8_t offset = 0;
+    uint8_t msg_min_size = sizeof(mhdr) + sizeof(dev_addr) + sizeof(f_ctrl)
+        + sizeof(f_cnt) + sizeof(mic);
+
+    if (size < msg_min_size)
+        return UWAN_ERR_MSG_LEN;
+
+    mhdr = buf[offset++];
+    if (((mhdr >> MAJOR_OFFSET) & MAJOR_MASK) != MAJOR_LORAWAN_R1)
+        return UWAN_ERR_MSG_MHDR;
+
+    uint8_t mtype = (mhdr >> MTYPE_OFFSET) & MTYPE_MASK;
+    if (mtype != UWAN_MTYPE_UNCONF_DATA_DOWN && mtype != UWAN_MTYPE_CONF_DATA_DOWN)
+        return UWAN_ERR_MSG_MHDR;
+
+    dev_addr = buf[offset++];
+    dev_addr |= buf[offset++] << 8;
+    dev_addr |= buf[offset++] << 16;
+    dev_addr |= buf[offset++] << 24;
+
+    if (uw_session.dev_addr != dev_addr)
+        return UWAN_ERR_DEV_ADDR;
+
+    f_ctrl = buf[offset++];
+    f_opts_len = f_ctrl & FCTRL_FOPTS_MASK;
+    if (size < (msg_min_size + f_opts_len))
+        return UWAN_ERR_MSG_LEN;
+
+    f_cnt = buf[offset++];
+    f_cnt |= buf[offset++] << 8;
+
+    offset += f_opts_len;
+    // TODO handle fOpts
+
+    *pld_size = size - (msg_min_size + f_opts_len);
+    if (*pld_size > 0) {
+        *f_port = buf[offset++];
+        *pld = buf + offset;
+        *pld_size = *pld_size - 1;
+    }
+
+    uw_session.f_cnt_down = f_cnt; // TODO
+
+    calc_mic(mic, buf, size - sizeof(mic), uw_session.nwk_s_key,
+         B0_DIR_DOWNLINK, true);
+    if (memcmp(buf + size - sizeof(mic), mic, sizeof(mic)))
+        return UWAN_ERR_MSG_MIC;
+
+    if (*pld_size > 0) {
+        const uint8_t *key;
+        key = (*f_port == 0) ? uw_session.nwk_s_key : uw_session.app_s_key;
+        encrypt_payload(*pld, *pld_size, key, B0_DIR_DOWNLINK);
+    }
+
     return UWAN_ERR_NO;
 }
 
 static void handle_downlink(enum uwan_errs err)
 {
-    enum uwan_status status = UWAN_ST_NO;
     uint8_t frame_size = 0;
     int16_t rssi = 0;
     int8_t snr = 0;
+    uint8_t f_port = 0;
+    uint8_t *pld = (void *)0;
+    uint8_t pld_size = 0;
+    enum uwan_mtypes mtype;
 
     if (err == UWAN_ERR_NO) {
         frame_size = uw_radio->read_packet(uw_frame,
             sizeof(uw_frame), &rssi, &snr);
-    }
 
-    uw_radio->sleep();
+        uw_radio->sleep();
 
-    if (uw_mtype == MTYPE_JOIN_REQUEST) {
-        if (err == UWAN_ERR_NO)
+        mtype = (enum uwan_mtypes)((uw_frame[0] >> MTYPE_OFFSET) & MTYPE_MASK);
+        if (uw_is_join_state) {
+            uw_is_join_state = false;
             err = handle_join_msg(uw_frame, frame_size);
-
-        if (err == UWAN_ERR_NO) {
-            uw_is_joined = true;
-            status = UWAN_ST_JOINED;
         }
         else {
-            status = UWAN_ST_NOT_JOINED;
+            err = handle_data_msg(uw_frame, frame_size, &f_port, &pld, &pld_size);
         }
     }
-    else {
-        if (err == UWAN_ERR_NO)
-            err = handle_data_msg(uw_frame, frame_size);
-    }
 
-    uw_stack_hal->downlink_callback(err, status);
+    uw_stack_hal->downlink_callback(err, mtype, f_port, pld, pld_size, rssi, snr);
 }
 
 static void evt_handler(uint8_t evt_mask)
@@ -442,8 +498,8 @@ enum uwan_errs uwan_join()
     uw_radio->setup(&pkt_params);
 
     uw_is_joined = false;
-    uw_mtype = MTYPE_JOIN_REQUEST;
-    uw_frame[offset++] = (uw_mtype << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
+    uw_is_join_state = true;
+    uw_frame[offset++] = (UWAN_MTYPE_JOIN_REQUEST << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
 
     memcpy(&uw_frame[offset], uw_session.app_eui, UWAN_APP_EUI_SIZE);
     offset += UWAN_APP_EUI_SIZE;
@@ -469,7 +525,6 @@ enum uwan_errs uwan_join()
 enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uint8_t pld_len, bool confirm)
 {
-    const uint8_t dir = 0; // uplink
     uint8_t offset = 0;
 
     if (uw_state != UWAN_STATE_IDLE)
@@ -486,12 +541,13 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_radio->set_frequency(ch->frequency);
     uw_radio->setup(&pkt_params);
 
+    uint8_t mtype;
     if (confirm)
-        uw_mtype = MTYPE_CONF_DATA_UP;
+        mtype = UWAN_MTYPE_CONF_DATA_UP;
     else
-        uw_mtype = MTYPE_UNCONF_DATA_UP;
+        mtype = UWAN_MTYPE_UNCONF_DATA_UP;
 
-    uw_frame[offset++] = (uw_mtype << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
+    uw_frame[offset++] = (mtype << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
     uw_frame[offset++] = uw_session.dev_addr & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 8) & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 16) & 0xff;
@@ -504,11 +560,12 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 
     memcpy(&uw_frame[offset], payload, pld_len);
     // Encrypt FRMPayload before MIC calculation
-    encrypt_payload(dir, &uw_frame[offset], pld_len);
+    encrypt_payload(&uw_frame[offset], pld_len, uw_session.app_s_key,
+        B0_DIR_UPLINK);
     offset += pld_len;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key, dir,
-        true);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key,
+        B0_DIR_UPLINK, true);
     offset += 4;
 
     uw_session.f_cnt_up++;

@@ -86,12 +86,17 @@ enum uwan_errs {
     UWAN_ERR_MSG_LEN,
     UWAN_ERR_MSG_MHDR,
     UWAN_ERR_MSG_MIC,
+    UWAN_ERR_DEV_ADDR,
 };
 
-enum uwan_status {
-    UWAN_ST_NO,
-    UWAN_ST_JOINED,
-    UWAN_ST_NOT_JOINED,
+enum uwan_mtypes {
+    UWAN_MTYPE_JOIN_REQUEST = 0x0,
+    UWAN_MTYPE_JOIN_ACCEPT = 0x1,
+    UWAN_MTYPE_UNCONF_DATA_UP = 0x2,
+    UWAN_MTYPE_UNCONF_DATA_DOWN = 0x3,
+    UWAN_MTYPE_CONF_DATA_UP = 0x4,
+    UWAN_MTYPE_CONF_DATA_DOWN = 0x5,
+    UWAN_MTYPE_PROPRIETARY = 0x7,
 };
 
 enum uwan_timer_ids {
@@ -146,7 +151,9 @@ struct radio_dev {
 struct stack_hal {
     void (*start_timer)(enum uwan_timer_ids timer_id, uint32_t timeout_ms);
     void (*stop_timer)(enum uwan_timer_ids timer_id);
-    void (*downlink_callback)(enum uwan_errs err, enum uwan_status status);
+    void (*downlink_callback)(enum uwan_errs err, enum uwan_mtypes m_type,
+        uint8_t f_port, uint8_t *payload, uint8_t payload_size, int16_t rssi,
+        int8_t snr);
 };
 
 /**

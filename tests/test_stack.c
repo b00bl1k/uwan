@@ -36,7 +36,7 @@ static enum uwan_bw radio_bw;
 static enum uwan_cr radio_cr;
 static uint8_t radio_dio_irq;
 static enum uwan_errs app_err;
-static enum uwan_status app_status;
+static enum uwan_mtypes app_m_type;
 static int app_downlink_callback_call_count;
 static void (*app_evt_handler)(uint8_t evt_mask);
 
@@ -143,11 +143,13 @@ void app_stop_timer(enum uwan_timer_ids timer_id)
 
 }
 
-void app_downlink_callback(enum uwan_errs err, enum uwan_status status)
+void app_downlink_callback(enum uwan_errs err, enum uwan_mtypes m_type,
+    uint8_t f_port, uint8_t *payload, uint8_t payload_size, int16_t rssi,
+    int8_t snr)
 {
     app_downlink_callback_call_count++;
     app_err = err;
-    app_status = status;
+    app_m_type = m_type;
 }
 
 static const struct stack_hal app_hal = {
@@ -200,7 +202,7 @@ void test_join_successfull()
     assert(radio_sleep_call_count == 1);
     assert(app_downlink_callback_call_count == 1);
     assert(app_err == UWAN_ERR_NO);
-    assert(app_status == UWAN_ST_JOINED);
+    assert(app_m_type == UWAN_MTYPE_JOIN_ACCEPT);
     assert(uwan_is_joined());
 }
 
