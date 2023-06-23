@@ -244,6 +244,8 @@ int main()
     result = uwan_set_channel(1, 868800000, UWAN_DR_0, UWAN_DR_5);
     assert(result == UWAN_ERR_NO);
 
+    uwan_set_default_dr(UWAN_DR_5);
+
     test_join_successfull();
     test_send_uplink_successfull();
 
