@@ -29,7 +29,9 @@
 #include <tinycrypt/cmac_mode.h>
 
 #include <uwan/stack.h>
+#include "adr.h"
 #include "channels.h"
+#include "mac.h"
 #include "utils.h"
 
 #define MAJOR_MASK 0x3
@@ -104,6 +106,8 @@ static uint32_t uw_rx1_delay;
 static uint32_t uw_rx2_delay;
 static bool uw_is_joined;
 static bool uw_is_join_state;
+
+static enum uwan_dr default_dr = UWAN_DR_0;
 
 /* Channel plan variables */
 static uint32_t uw_rx2_frequency;
@@ -313,8 +317,10 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
     f_cnt = buf[offset++];
     f_cnt |= buf[offset++] << 8;
 
+    if (f_opts_len > 0)
+        mac_handle_commands(buf + offset, f_opts_len);
+
     offset += f_opts_len;
-    // TODO handle fOpts
 
     *pld_size = size - (msg_min_size + f_opts_len);
     if (*pld_size > 0) {
@@ -335,6 +341,8 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
         key = (*f_port == 0) ? uw_session.nwk_s_key : uw_session.app_s_key;
         encrypt_payload(*pld, *pld_size, key, B0_DIR_DOWNLINK);
     }
+
+    adr_handle_downlink();
 
     return UWAN_ERR_NO;
 }
@@ -479,7 +487,6 @@ enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
 
 enum uwan_errs uwan_join()
 {
-    const uint8_t dir = 0;
     uint8_t offset = 0;
 
     if (uw_state != UWAN_STATE_IDLE)
@@ -489,7 +496,7 @@ enum uwan_errs uwan_join()
     if (ch == NULL)
         return UWAN_ERR_CHANNEL;
 
-    const struct node_dr *dr = &uw_dr_table[ch->dr_max];
+    const struct node_dr *dr = &uw_dr_table[default_dr];
     uw_radio->set_frequency(ch->frequency);
 
     pkt_params.sf = dr->sf;
@@ -510,8 +517,8 @@ enum uwan_errs uwan_join()
     uw_frame[offset++] = uw_session.dev_nonce & 0xff;
     uw_frame[offset++] = (uw_session.dev_nonce >> 8) & 0xff;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key, dir,
-        false);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key,
+        B0_DIR_UPLINK, false);
     offset += 4;
 
     uw_rx1_delay = JOIN_ACCEPT_DELAY1;
@@ -534,7 +541,12 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     if (ch == NULL)
         return UWAN_ERR_CHANNEL;
 
-    const struct node_dr *dr = &uw_dr_table[ch->dr_max];
+    const struct node_dr *dr;
+    if (uwan_adr_is_enabled())
+        dr = &uw_dr_table[adr_get_dr()];
+    else
+        dr = &uw_dr_table[default_dr];
+
     pkt_params.sf = dr->sf;
     pkt_params.bw = dr->bw;
     pkt_params.inverted_iq = false;
@@ -552,10 +564,18 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_frame[offset++] = (uw_session.dev_addr >> 8) & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 16) & 0xff;
     uw_frame[offset++] = (uw_session.dev_addr >> 24) & 0xff;
-    uw_frame[offset++] = 0x0; // FCtrl
+
+    uint8_t f_ctrl = 0;
+    if (uwan_adr_is_enabled())
+        f_ctrl |= FCTRL_ADR;
+    if (adr_get_req_bit())
+        f_ctrl |= FCTRL_UPLINK_ADR_ACK_REQ;
+    f_ctrl |= mac_get_payload_size() & FCTRL_FOPTS_MASK;
+    uw_frame[offset++] = f_ctrl;
     uw_frame[offset++] = uw_session.f_cnt_up & 0xff;
     uw_frame[offset++] = (uw_session.f_cnt_up >> 8) & 0xff;
-    // TODO FOpts
+    offset += mac_get_payload(uw_frame + offset, 15);
+
     uw_frame[offset++] = f_port; // optional
 
     memcpy(&uw_frame[offset], payload, pld_len);
@@ -575,6 +595,8 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_state = UWAN_STATE_TX;
     uw_radio->tx(uw_frame, offset);
 
+    adr_handle_uplink();
+
     return UWAN_ERR_NO;
 }
 
@@ -586,4 +608,10 @@ void uwan_timer_callback(enum uwan_timer_ids timer_id)
     else if (uw_state == UWAN_STATE_RX2 && timer_id == UWAN_TIMER_RX2) {
         uw_radio->rx(FRAME_MAX_SIZE, RX_SYMB_TIMEOUT, 0);
     }
+}
+
+void uwan_set_default_dr(enum uwan_dr dr)
+{
+    if (dr < UWAN_DR_COUNT)
+        default_dr = dr;
 }

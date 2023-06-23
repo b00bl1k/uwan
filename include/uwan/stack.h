@@ -241,4 +241,12 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
  */
 void uwan_timer_callback(enum uwan_timer_ids timer_id);
 
+void uwan_set_default_dr(enum uwan_dr dr);
+
+bool uwan_adr_is_enabled(void);
+
+void uwan_adr_enable(bool enable);
+
+void uwan_adr_setup_ack(uint8_t limit, uint8_t delay);
+
 #endif /* ~__UWAN_STACK_H__ */
