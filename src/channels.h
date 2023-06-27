@@ -25,16 +25,10 @@
 #ifndef __CHANNELS_H__
 #define __CHANNELS_H__
 
-#include <uwan/stack.h>
-
-struct node_channel {
-    uint32_t frequency; // 0 - is disabled
-    enum uwan_dr dr_min;
-    enum uwan_dr dr_max;
-};
+#include <stdint.h>
 
 void channels_init(void);
 
-const struct node_channel *channels_get_next(void);
+uint32_t channels_get_next(void);
 
 #endif /* ~__CHANNELS_H__ */

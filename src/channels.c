@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <uwan/stack.h>
 #include "channels.h"
 #include "utils.h"
 
@@ -33,7 +34,7 @@
 
 static uint8_t uw_channels_max_count;
 static uint8_t uw_channels_mask[BYTES_FOR_BITS(MAX_CHANNELS)];
-static struct node_channel uw_channels[MAX_CHANNELS];
+static uint32_t uw_channels[MAX_CHANNELS];
 
 void channels_init()
 {
@@ -41,23 +42,23 @@ void channels_init()
     uw_channels_max_count = 0;
 }
 
-const struct node_channel *channels_get_next()
+uint32_t channels_get_next()
 {
     uint8_t ch;
     uint8_t start_ch;
 
     if (uw_channels_max_count == 0)
-        return NULL;
+        return 0;
 
     ch = start_ch = utils_get_random(uw_channels_max_count);
 
     do {
         if (BIT_IS_SET(uw_channels_mask, ch))
-            return &uw_channels[ch];
+            return uw_channels[ch];
         ch = (ch + 1) % uw_channels_max_count;
     } while (start_ch != ch);
 
-    return NULL;
+    return 0;
 }
 
 enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
@@ -82,17 +83,12 @@ enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
     return UWAN_ERR_NO;
 }
 
-enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
-    enum uwan_dr dr_min, enum uwan_dr dr_max)
+enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency)
 {
     if (index >= MAX_CHANNELS)
         return UWAN_ERR_CHANNEL;
-    if (dr_min > dr_max || dr_max >= UWAN_DR_COUNT)
-        return UWAN_ERR_DATARATE;
 
-    uw_channels[index].frequency = frequency;
-    uw_channels[index].dr_min = dr_min;
-    uw_channels[index].dr_max = dr_max;
+    uw_channels[index] = frequency;
     uwan_enable_channel(index, true);
 
     return UWAN_ERR_NO;

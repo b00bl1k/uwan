@@ -492,16 +492,16 @@ enum uwan_errs uwan_join()
     if (uw_state != UWAN_STATE_IDLE)
         return UWAN_ERR_STATE;
 
-    const struct node_channel *ch = channels_get_next();
-    if (ch == NULL)
+    uint32_t frequency = channels_get_next();
+    if (!frequency)
         return UWAN_ERR_CHANNEL;
 
     const struct node_dr *dr = &uw_dr_table[default_dr];
-    uw_radio->set_frequency(ch->frequency);
 
     pkt_params.sf = dr->sf;
     pkt_params.bw = dr->bw;
     pkt_params.inverted_iq = false;
+    uw_radio->set_frequency(frequency);
     uw_radio->setup(&pkt_params);
 
     uw_is_joined = false;
@@ -537,8 +537,8 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     if (uw_state != UWAN_STATE_IDLE)
         return UWAN_ERR_STATE;
 
-    const struct node_channel *ch = channels_get_next();
-    if (ch == NULL)
+    uint32_t frequency = channels_get_next();
+    if (!frequency)
         return UWAN_ERR_CHANNEL;
 
     const struct node_dr *dr;
@@ -550,7 +550,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     pkt_params.sf = dr->sf;
     pkt_params.bw = dr->bw;
     pkt_params.inverted_iq = false;
-    uw_radio->set_frequency(ch->frequency);
+    uw_radio->set_frequency(frequency);
     uw_radio->setup(&pkt_params);
 
     uint8_t mtype;

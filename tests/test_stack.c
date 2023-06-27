@@ -241,7 +241,7 @@ int main()
 
     assert(uwan_join() == UWAN_ERR_CHANNEL);
 
-    result = uwan_set_channel(1, 868800000, UWAN_DR_0, UWAN_DR_5);
+    result = uwan_set_channel(1, 868800000);
     assert(result == UWAN_ERR_NO);
 
     uwan_set_default_dr(UWAN_DR_5);

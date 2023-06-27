@@ -207,8 +207,7 @@ enum uwan_errs uwan_enable_channel(uint8_t index, bool enable);
  * \param dr_min minimum data rate
  * \param dr_max maximum data rate
  */
-enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency,
-    enum uwan_dr dr_min, enum uwan_dr dr_max);
+enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency);
 
 /**
  * \brief Setup RX2 window
