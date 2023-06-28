@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <string.h>
 #include <uwan/stack.h>
+#include <uwan/region/eu868.h>
 #include "utils.h"
 
 static uint8_t radio_frame[256];
@@ -216,7 +217,7 @@ void test_send_uplink_successfull()
     result = uwan_send_frame(f_port, tx_payload, sizeof(tx_payload), confirm);
     assert(result == UWAN_ERR_NO);
 
-    assert(radio_freq == 868800000);
+    assert(radio_freq == 868300000);
     assert(radio_bw == UWAN_BW_125);
     assert(radio_sf == UWAN_SF_7);
     assert(radio_cr == UWAN_CR_4_5);
@@ -235,15 +236,7 @@ void test_send_uplink_successfull()
 
 int main()
 {
-    enum uwan_errs result;
-
-    uwan_init(&radio, &app_hal);
-
-    assert(uwan_join() == UWAN_ERR_CHANNEL);
-
-    result = uwan_set_channel(1, 868800000);
-    assert(result == UWAN_ERR_NO);
-
+    uwan_init(&radio, &app_hal, &region_eu868);
     uwan_set_default_dr(UWAN_DR_5);
 
     test_join_successfull();

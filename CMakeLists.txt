@@ -15,6 +15,8 @@ set(TINYCRYPT_SRC
 set(LIB_SRC
     ${SRC_DIR}/device/sx127x.c
     ${SRC_DIR}/device/sx126x.c
+    ${SRC_DIR}/region/eu868.c
+    ${SRC_DIR}/region/ru864.c
     ${SRC_DIR}/adr.c
     ${SRC_DIR}/channels.c
     ${SRC_DIR}/mac.c

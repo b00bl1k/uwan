@@ -98,6 +98,7 @@ static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
 
 static const struct radio_dev *uw_radio;
 static const struct stack_hal *uw_stack_hal;
+static const struct uwan_region *uw_region;
 static struct uwan_packet_params pkt_params;
 static struct node_session uw_session;
 static uint8_t uw_frame[FRAME_MAX_SIZE];
@@ -109,7 +110,7 @@ static bool uw_is_join_state;
 
 static enum uwan_dr default_dr = UWAN_DR_0;
 
-/* Channel plan variables */
+/* RX2 window settings */
 static uint32_t uw_rx2_frequency;
 static enum uwan_dr uw_rx2_dr;
 
@@ -264,8 +265,11 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
     uw_session.dev_addr |= buf[offset++] << 16;
     uw_session.dev_addr |= buf[offset++] << 24;
 
-    // TODO DLSettings
-    // TODO RxDelay
+    offset++; // TODO DLSettings
+    offset++; // TODO RxDelay
+
+    if (cflist)
+        uw_region->handle_cflist(buf + offset);
 
     const uint8_t nwk = 0x01;
     const uint8_t app = 0x02;
@@ -433,15 +437,18 @@ static void evt_handler(uint8_t evt_mask)
     }
 }
 
-void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack)
+void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
+    const struct uwan_region *region)
 {
     uw_state = UWAN_STATE_IDLE;
     uw_radio = radio;
     uw_stack_hal = stack;
+    uw_region = region;
 
     radio->set_evt_handler(evt_handler);
 
     channels_init();
+    uw_region->init();
     utils_random_init(radio->rand());
 
     pkt_params.cr = UWAN_CR_4_5;

@@ -41,6 +41,7 @@
 #define LORAWAN_PUBLIC_SYNC_WORD_LSB 0x44
 #define LORAWAN_PRIVATE_SYNC_WORD_MSB 0x14
 #define LORAWAN_PRIVATE_SYNC_WORD_LSB 0x24
+#define LORAWAN_CFLIST_SIZE 16
 
 enum uwan_sf {
     UWAN_SF_6,
@@ -156,13 +157,20 @@ struct stack_hal {
         int8_t snr);
 };
 
+struct uwan_region {
+    void (*init)(void);
+    void (*handle_cflist)(const uint8_t *cflist);
+};
+
 /**
  * \brief Initialize stack
  *
  * \param pointer to radio device (sx127x_dev or sx126x_dev)
  * \param pointer to hal for stack
+ * \param pointer to region struct (region_eu868 for example)
  */
-void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack);
+void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
+    const struct uwan_region *region);
 
 /**
  * \brief Set keys for OTAA activation
@@ -204,8 +212,6 @@ enum uwan_errs uwan_enable_channel(uint8_t index, bool enable);
  *
  * \param index index of channel in range 0..(MAX_CHANNELS - 1)
  * \param frequency actual channel frequency in Hz
- * \param dr_min minimum data rate
- * \param dr_max maximum data rate
  */
 enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency);
 
