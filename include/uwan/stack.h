@@ -160,6 +160,8 @@ struct stack_hal {
 struct uwan_region {
     void (*init)(void);
     void (*handle_cflist)(const uint8_t *cflist);
+    bool (*handle_adr_ch_mask)(uint16_t ch_mask, uint8_t ch_mask_cntl,
+        bool dry_run);
 };
 
 /**
@@ -254,4 +256,4 @@ void uwan_adr_enable(bool enable);
 
 void uwan_adr_setup_ack(uint8_t limit, uint8_t delay);
 
-#endif /* ~__UWAN_STACK_H__ */
+#endif

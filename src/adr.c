@@ -24,14 +24,23 @@
 
 #include "adr.h"
 #include "mac.h"
+#include "stack.h"
 
-#define LINK_ADR_REQ_DR_MASK 0xf
-#define LINK_ADR_REQ_DR_SHIFT 4
+/* Fields of LinkADRReq command */
+#define DRTX_DR_MASK 0xf
+#define DRTX_DR_SHIFT 4
+#define DRTX_TX_POWER_MASK 0xf
+#define DRTX_TX_POWER_SHIFT 0
+#define REDUNDANCY_CH_MASK_CNTL_MASK 0x7
+#define REDUNDANCY_CH_MASK_CNTL_SHIFT 4
+#define REDUNDANCY_NB_TRANS_MASK 0xf
+#define REDUNDANCY_NB_TRANS_SHIFT 0
 
-#define LINK_ADR_ANS_STATUS_CH_MASK_ACK 0x1
-#define LINK_ADR_ANS_STATUS_DR_ACK      0x2
-#define LINK_ADR_ANS_STATUS_POWER_ACK   0x4
-#define LINK_ADR_ANS_STATUS_OK          0x7
+/* Status byte of LinkADRAns command */
+#define STATUS_CH_MASK_ACK 0x1
+#define STATUS_DR_ACK      0x2
+#define STATUS_POWER_ACK   0x4
+#define STATUS_OK          0x7
 
 static uint32_t ack_cnt;
 static uint8_t ack_limit = 32;
@@ -69,21 +78,26 @@ enum uwan_dr adr_get_dr()
     return curr_dr;
 }
 
-bool adr_handle_link_req(uint8_t dr_txpow, uint16_t ch_mask, uint8_t redundancy)
+bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
 {
     uint8_t result = 0;
 
-    uint8_t dr = (dr_txpow >> LINK_ADR_REQ_DR_SHIFT) & LINK_ADR_REQ_DR_MASK;
+    uint8_t dr = (dr_txpow >> DRTX_DR_SHIFT) & DRTX_DR_MASK;
     if (dr < UWAN_DR_COUNT)
-        result |= LINK_ADR_ANS_STATUS_DR_ACK;
+        result |= STATUS_DR_ACK;
 
-    // TODO chMask, txPower, redundancy
-    result |= LINK_ADR_ANS_STATUS_CH_MASK_ACK;
-    result |= LINK_ADR_ANS_STATUS_POWER_ACK;
+    uint8_t ch_mask_cntl = (redundancy >> REDUNDANCY_CH_MASK_CNTL_SHIFT) &
+        REDUNDANCY_CH_MASK_CNTL_SHIFT;
+    if (uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, true))
+        result |= STATUS_CH_MASK_ACK;
 
-    if (result == LINK_ADR_ANS_STATUS_OK) {
+    // TODO nbTrans, txPower
+    result |= STATUS_POWER_ACK;
+
+    if (result == STATUS_OK) {
         // command succeed, change the state
         curr_dr = (enum uwan_dr)dr;
+        uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, false);
     }
 
     return mac_enqueue_ans(CID_LINK_ADR, &result, sizeof(result));

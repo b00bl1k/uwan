@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,12 +61,33 @@ uint32_t channels_get_next()
     return 0;
 }
 
+void channels_enable_all()
+{
+    for (uint8_t i = 0; i < MAX_CHANNELS; i++) {
+        if (uw_channels[i] != 0) {
+            uw_channels_max_count = MAX(uw_channels_max_count, i + 1);
+            BIT_SET(uw_channels_mask, i);
+        }
+    }
+}
+
+bool channel_is_exist(uint8_t index)
+{
+    if (index >= MAX_CHANNELS)
+        return false;
+
+    return uw_channels[index] != 0;
+}
+
 enum uwan_errs uwan_enable_channel(uint8_t index, bool enable)
 {
     if (index >= MAX_CHANNELS)
         return UWAN_ERR_CHANNEL;
 
     if (enable) {
+        if (uw_channels[index] == 0)
+            return UWAN_ERR_CHANNEL;
+
         uw_channels_max_count = MAX(uw_channels_max_count, index + 1);
         BIT_SET(uw_channels_mask, index);
     }

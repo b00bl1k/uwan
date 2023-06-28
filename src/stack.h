@@ -22,29 +22,11 @@
  * SOFTWARE.
  */
 
-#include <uwan/region/eu868.h>
-#include "common.h"
+#ifndef __STACK_H__
+#define __STACK_H__
 
-#define CFLIST_CH_FIRST 3
+#include <uwan/stack.h>
 
-static void eu868_init(void);
-static void eu868_handle_cflist(const uint8_t *cflist);
+extern const struct uwan_region *uw_region;
 
-const struct uwan_region region_eu868 = {
-    .init = eu868_init,
-    .handle_cflist = eu868_handle_cflist,
-    .handle_adr_ch_mask = region_86x_handle_adr_ch_mask,
-};
-
-void eu868_init()
-{
-    uwan_set_channel(0, 868100000);
-    uwan_set_channel(1, 868300000);
-    uwan_set_channel(2, 868500000);
-    uwan_set_rx2(868100000, UWAN_DR_0);
-}
-
-static void eu868_handle_cflist(const uint8_t *cflist)
-{
-    region_86x_handle_cflist(cflist, CFLIST_CH_FIRST);
-}
+#endif

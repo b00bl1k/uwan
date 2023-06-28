@@ -22,12 +22,10 @@
  * SOFTWARE.
  */
 
-#include <uwan/stack.h>
+#include <uwan/region/ru864.h>
+#include "common.h"
 
-#define CFLIST_CHANNELS 5
 #define CFLIST_CH_FIRST 2
-#define CFLIST_CH_SIZE 3 // bytes
-#define CFLIST_FREQ_STEP 100 // Hz
 
 static void ru864_init(void);
 static void ru864_handle_cflist(const uint8_t *cflist);
@@ -35,6 +33,7 @@ static void ru864_handle_cflist(const uint8_t *cflist);
 const struct uwan_region region_ru864 = {
     .init = ru864_init,
     .handle_cflist = ru864_handle_cflist,
+    .handle_adr_ch_mask = region_86x_handle_adr_ch_mask,
 };
 
 static void ru864_init()
@@ -46,16 +45,5 @@ static void ru864_init()
 
 static void ru864_handle_cflist(const uint8_t *cflist)
 {
-    uint8_t cflist_type = cflist[LORAWAN_CFLIST_SIZE - 1];
-
-    if (cflist_type != 0)
-        return;
-
-    for (int idx = 0; idx < CFLIST_CHANNELS; idx++, cflist += CFLIST_CH_SIZE) {
-        uint32_t freq = cflist[0] | cflist[1] << 8 | cflist[2] << 16;
-        if (freq == 0)
-            uwan_enable_channel(idx + CFLIST_CH_FIRST, false);
-        else
-            uwan_set_channel(idx + CFLIST_CH_FIRST, freq * CFLIST_FREQ_STEP);
-    }
+    region_86x_handle_cflist(cflist, CFLIST_CH_FIRST);
 }

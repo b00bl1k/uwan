@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021 Alexey Ryabov
+ * Copyright (c) 2021-2023 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,4 +31,11 @@ void channels_init(void);
 
 uint32_t channels_get_next(void);
 
-#endif /* ~__CHANNELS_H__ */
+bool channel_is_exist(uint8_t index);
+
+/**
+ * \brief Enable all defined channels
+ */
+void channels_enable_all(void);
+
+#endif

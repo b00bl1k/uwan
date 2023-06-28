@@ -96,9 +96,10 @@ static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
     {UWAN_SF_7, UWAN_BW_125},
 };
 
+const struct uwan_region *uw_region;
+
 static const struct radio_dev *uw_radio;
 static const struct stack_hal *uw_stack_hal;
-static const struct uwan_region *uw_region;
 static struct uwan_packet_params pkt_params;
 static struct node_session uw_session;
 static uint8_t uw_frame[FRAME_MAX_SIZE];
