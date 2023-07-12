@@ -29,8 +29,6 @@
 
 bool adr_get_req_bit(void);
 
-enum uwan_dr adr_get_dr(void);
-
 bool adr_handle_link_req(uint8_t dr_txpow, uint16_t ch_mask, uint8_t redundancy);
 
 void adr_handle_uplink(void);

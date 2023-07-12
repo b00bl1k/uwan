@@ -27,6 +27,18 @@
 
 #include <uwan/stack.h>
 
+struct node_session {
+    uint32_t dev_addr;
+    uint32_t f_cnt_up;
+    uint32_t f_cnt_down;
+    uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
+    uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
+    bool is_joined;
+    bool ack_required;
+    enum uwan_dr dr;
+};
+
 extern const struct uwan_region *uw_region;
+extern struct node_session uw_session;
 
 #endif

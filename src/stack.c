@@ -32,6 +32,7 @@
 #include "adr.h"
 #include "channels.h"
 #include "mac.h"
+#include "stack.h"
 #include "utils.h"
 
 #define MAJOR_MASK 0x3
@@ -60,6 +61,7 @@
 #define MIC_LEN 4
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
+#define MAX_FCNT_GAP 16384
 
 enum stack_states {
     UWAN_STATE_NOT_INIT,
@@ -67,18 +69,6 @@ enum stack_states {
     UWAN_STATE_TX,
     UWAN_STATE_RX1,
     UWAN_STATE_RX2,
-};
-
-struct node_session {
-    uint8_t dev_eui[UWAN_DEV_EUI_SIZE];
-    uint8_t app_eui[UWAN_APP_EUI_SIZE];
-    uint8_t app_key[UWAN_APP_KEY_SIZE];
-    uint32_t dev_addr;
-    uint32_t dev_nonce;
-    uint32_t f_cnt_up;
-    uint32_t f_cnt_down;
-    uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
-    uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
 };
 
 struct node_dr {
@@ -97,17 +87,20 @@ static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
 };
 
 const struct uwan_region *uw_region;
+struct node_session uw_session;
 
 static const struct radio_dev *uw_radio;
 static const struct stack_hal *uw_stack_hal;
 static struct uwan_packet_params pkt_params;
-static struct node_session uw_session;
 static uint8_t uw_frame[FRAME_MAX_SIZE];
 static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
 static uint32_t uw_rx1_delay;
 static uint32_t uw_rx2_delay;
-static bool uw_is_joined;
 static bool uw_is_join_state;
+static uint32_t uw_dev_nonce;
+static uint8_t uw_dev_eui[UWAN_DEV_EUI_SIZE];
+static uint8_t uw_app_eui[UWAN_APP_EUI_SIZE];
+static uint8_t uw_app_key[UWAN_APP_KEY_SIZE];
 
 static enum uwan_dr default_dr = UWAN_DR_0;
 
@@ -210,12 +203,12 @@ static void derive_session_key(uint8_t *key, uint8_t key_type,
     key[offset++] = net_id & 0xff;
     key[offset++] = (net_id >> 8) & 0xff;
     key[offset++] = (net_id >> 16) & 0xff;
-    key[offset++] = uw_session.dev_nonce & 0xff;
-    key[offset++] = (uw_session.dev_nonce >> 8) & 0xff;
+    key[offset++] = uw_dev_nonce & 0xff;
+    key[offset++] = (uw_dev_nonce >> 8) & 0xff;
     while (offset < AES_BLOCK_SIZE)
         key[offset++] = 0x00;
 
-    tc_aes128_set_encrypt_key(&key_sched, uw_session.app_key);
+    tc_aes128_set_encrypt_key(&key_sched, uw_app_key);
     tc_aes_encrypt(key, key, &key_sched);
 }
 
@@ -226,7 +219,7 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
     uint8_t offset = 0;
     bool cflist;
 
-    tc_aes128_set_encrypt_key(&key_sched, uw_session.app_key);
+    tc_aes128_set_encrypt_key(&key_sched, uw_app_key);
 
     if (size == (AES_BLOCK_SIZE + 1))
         cflist = false;
@@ -247,7 +240,7 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
             buf + sizeof(mhdr) + AES_BLOCK_SIZE, &key_sched);
     }
 
-    calc_mic(mic, buf, size - sizeof(mic), uw_session.app_key, 0, false);
+    calc_mic(mic, buf, size - sizeof(mic), uw_app_key, 0, false);
     if (memcmp(buf + size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
 
@@ -261,10 +254,10 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
     net_id |= buf[offset++] << 8;
     net_id |= buf[offset++] << 16;
 
-    uw_session.dev_addr = buf[offset++];
-    uw_session.dev_addr |= buf[offset++] << 8;
-    uw_session.dev_addr |= buf[offset++] << 16;
-    uw_session.dev_addr |= buf[offset++] << 24;
+    uint32_t dev_addr = buf[offset++];
+    dev_addr |= buf[offset++] << 8;
+    dev_addr |= buf[offset++] << 16;
+    dev_addr |= buf[offset++] << 24;
 
     offset++; // TODO DLSettings
     offset++; // TODO RxDelay
@@ -274,10 +267,11 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
 
     const uint8_t nwk = 0x01;
     const uint8_t app = 0x02;
-    derive_session_key(uw_session.nwk_s_key, nwk, app_nonce, net_id);
-    derive_session_key(uw_session.app_s_key, app, app_nonce, net_id);
-
-    uw_is_joined = true;
+    uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
+    uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
+    derive_session_key(nwk_s_key, nwk, app_nonce, net_id);
+    derive_session_key(app_s_key, app, app_nonce, net_id);
+    uwan_set_session(dev_addr, 0, 0, nwk_s_key, app_s_key);
 
     return UWAN_ERR_NO;
 }
@@ -305,6 +299,9 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
     uint8_t mtype = (mhdr >> MTYPE_OFFSET) & MTYPE_MASK;
     if (mtype != UWAN_MTYPE_UNCONF_DATA_DOWN && mtype != UWAN_MTYPE_CONF_DATA_DOWN)
         return UWAN_ERR_MSG_MHDR;
+
+    if (mtype == UWAN_MTYPE_CONF_DATA_DOWN)
+        uw_session.ack_required = true;
 
     dev_addr = buf[offset++];
     dev_addr |= buf[offset++] << 8;
@@ -461,9 +458,9 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
 void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
     const uint8_t *app_key)
 {
-    memcpy(uw_session.dev_eui, dev_eui, UWAN_DEV_EUI_SIZE);
-    memcpy(uw_session.app_eui, app_eui, UWAN_APP_EUI_SIZE);
-    memcpy(uw_session.app_key, app_key, UWAN_APP_KEY_SIZE);
+    memcpy(uw_dev_eui, dev_eui, UWAN_DEV_EUI_SIZE);
+    memcpy(uw_app_eui, app_eui, UWAN_APP_EUI_SIZE);
+    memcpy(uw_app_key, app_key, UWAN_APP_KEY_SIZE);
 }
 
 void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
@@ -472,14 +469,18 @@ void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     uw_session.dev_addr = dev_addr;
     uw_session.f_cnt_up = f_cnt_up;
     uw_session.f_cnt_down = f_cnt_down;
+    uw_session.ack_required = false;
+    uw_session.dr = default_dr;
 
     memcpy(uw_session.nwk_s_key, nwk_s_key, UWAN_NWK_S_KEY_SIZE);
     memcpy(uw_session.app_s_key, app_s_key, UWAN_APP_S_KEY_SIZE);
+
+    uw_session.is_joined = true;
 }
 
 bool uwan_is_joined()
 {
-    return uw_is_joined;
+    return uw_session.is_joined;
 }
 
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
@@ -512,21 +513,21 @@ enum uwan_errs uwan_join()
     uw_radio->set_frequency(frequency);
     uw_radio->setup(&pkt_params);
 
-    uw_is_joined = false;
+    uw_session.is_joined = false;
     uw_is_join_state = true;
     uw_frame[offset++] = (UWAN_MTYPE_JOIN_REQUEST << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
 
-    memcpy(&uw_frame[offset], uw_session.app_eui, UWAN_APP_EUI_SIZE);
+    memcpy(&uw_frame[offset], uw_app_eui, UWAN_APP_EUI_SIZE);
     offset += UWAN_APP_EUI_SIZE;
     for (uint8_t i = UWAN_DEV_EUI_SIZE; i > 0; i--)
-        uw_frame[offset++] = uw_session.dev_eui[i - 1];
+        uw_frame[offset++] = uw_dev_eui[i - 1];
 
-    uw_session.dev_nonce = utils_get_random(65536);
-    uw_frame[offset++] = uw_session.dev_nonce & 0xff;
-    uw_frame[offset++] = (uw_session.dev_nonce >> 8) & 0xff;
+    uw_dev_nonce = utils_get_random(65536);
+    uw_frame[offset++] = uw_dev_nonce & 0xff;
+    uw_frame[offset++] = (uw_dev_nonce >> 8) & 0xff;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.app_key,
-        B0_DIR_UPLINK, false);
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_app_key, B0_DIR_UPLINK,
+        false);
     offset += 4;
 
     uw_rx1_delay = JOIN_ACCEPT_DELAY1;
@@ -551,7 +552,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 
     const struct node_dr *dr;
     if (uwan_adr_is_enabled())
-        dr = &uw_dr_table[adr_get_dr()];
+        dr = &uw_dr_table[uw_session.dr];
     else
         dr = &uw_dr_table[default_dr];
 
@@ -578,6 +579,10 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
         f_ctrl |= FCTRL_ADR;
     if (adr_get_req_bit())
         f_ctrl |= FCTRL_UPLINK_ADR_ACK_REQ;
+    if (uw_session.ack_required) {
+        uw_session.ack_required = false;
+        f_ctrl |= FCTRL_ACK;
+    }
     f_ctrl |= mac_get_payload_size() & FCTRL_FOPTS_MASK;
     uw_frame[offset++] = f_ctrl;
     uw_frame[offset++] = uw_session.f_cnt_up & 0xff;

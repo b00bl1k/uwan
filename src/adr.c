@@ -42,11 +42,13 @@
 #define STATUS_POWER_ACK   0x4
 #define STATUS_OK          0x7
 
+#define ADR_ACK_LIMIT 64
+#define ADR_ACK_DELAY 32
+
 static uint32_t ack_cnt;
-static uint8_t ack_limit = 32;
-static uint8_t ack_delay = 16;
-static bool adr_is_enabled = false;
-static enum uwan_dr curr_dr = UWAN_DR_0;
+static uint8_t ack_limit = ADR_ACK_LIMIT;
+static uint8_t ack_delay = ADR_ACK_DELAY;
+static bool adr_is_enabled;
 
 bool uwan_adr_is_enabled()
 {
@@ -67,15 +69,10 @@ void uwan_adr_setup_ack(uint8_t limit, uint8_t delay)
 
 bool adr_get_req_bit()
 {
-    if (adr_is_enabled == false || curr_dr == UWAN_DR_0)
+    if (adr_is_enabled == false || uw_session.dr == UWAN_DR_0)
         return false;
 
     return ack_cnt >= ack_limit;
-}
-
-enum uwan_dr adr_get_dr()
-{
-    return curr_dr;
 }
 
 bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
@@ -96,7 +93,7 @@ bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
 
     if (result == STATUS_OK) {
         // command succeed, change the state
-        curr_dr = (enum uwan_dr)dr;
+        uw_session.dr = (enum uwan_dr)dr;
         uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, false);
     }
 
@@ -107,8 +104,8 @@ void adr_handle_uplink()
 {
     ack_cnt++;
 
-    if (curr_dr != UWAN_DR_0 && ack_cnt > (ack_limit + ack_delay)) {
-        curr_dr--;
+    if (uw_session.dr != UWAN_DR_0 && ack_cnt > (ack_limit + ack_delay)) {
+        uw_session.dr--;
         ack_cnt = 0;
     }
 }
