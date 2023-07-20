@@ -367,7 +367,6 @@ static void handle_downlink(enum uwan_errs err)
 
         mtype = (enum uwan_mtypes)((uw_frame[0] >> MTYPE_OFFSET) & MTYPE_MASK);
         if (uw_is_join_state) {
-            uw_is_join_state = false;
             err = handle_join_msg(uw_frame, frame_size);
         }
         else {
@@ -375,6 +374,7 @@ static void handle_downlink(enum uwan_errs err)
         }
     }
 
+    uw_is_join_state = false;
     uw_stack_hal->downlink_callback(err, mtype, f_port, pld, pld_size, rssi, snr);
 }
 
@@ -442,6 +442,9 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
     uw_radio = radio;
     uw_stack_hal = stack;
     uw_region = region;
+
+
+    memset(&uw_session, 0, sizeof(uw_session));
 
     radio->set_evt_handler(evt_handler);
 
