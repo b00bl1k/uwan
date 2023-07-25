@@ -362,9 +362,11 @@ static void handle_downlink(enum uwan_errs err)
     if (err == UWAN_ERR_NO) {
         frame_size = uw_radio->read_packet(uw_frame,
             sizeof(uw_frame), &rssi, &snr);
+    }
 
-        uw_radio->sleep();
+    uw_radio->sleep();
 
+    if (err == UWAN_ERR_NO) {
         mtype = (enum uwan_mtypes)((uw_frame[0] >> MTYPE_OFFSET) & MTYPE_MASK);
         if (uw_is_join_state) {
             err = handle_join_msg(uw_frame, frame_size);
