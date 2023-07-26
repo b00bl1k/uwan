@@ -33,8 +33,7 @@ static void sx127x_set_public_network(bool is_public);
 static void sx127x_setup(const struct uwan_packet_params *params);
 static void sx127x_tx(const uint8_t *buf, uint8_t len);
 static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
-static uint8_t sx127x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
-    int8_t *snr);
+static void sx127x_read_packet(struct uwan_dl_packet *pkt);
 static uint32_t sx127x_rand(void);
 static void sx127x_irq_handler(void);
 static void sx127x_set_evt_handler(void (*handler)(uint8_t evt_mask));
@@ -378,8 +377,7 @@ static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
         set_op_mode(OP_MODE_MODE_RX_CONTINUOUS);
 }
 
-static uint8_t sx127x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
-    int8_t *snr)
+static void sx127x_read_packet(struct uwan_dl_packet *pkt)
 {
     uint8_t size, fifo_ptr;
 
@@ -388,19 +386,18 @@ static uint8_t sx127x_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
 
     size = read_reg(SX127X_REG_LR_FIFO_RX_BYTES_NB);
 
-    if (size > buf_size)
-        size = buf_size;
+    if (size > pkt->size)
+        size = pkt->size;
 
     if (size > 0)
-        read_array(hal, SX127X_REG_FIFO, buf, size);
+        read_array(hal, SX127X_REG_FIFO, pkt->data, size);
 
     uint8_t snr_lsb = read_reg(SX127X_REG_LR_PACKET_SNR);
     uint8_t rssi_lsb = read_reg(SX127X_REG_LR_PACKET_RSSI);
 
-    *rssi = rssi_offset + rssi_lsb;
-    *snr = (int8_t)snr_lsb / 4;
-
-    return size;
+    pkt->size = size;
+    pkt->rssi = rssi_offset + rssi_lsb;
+    pkt->snr = (int8_t)snr_lsb / 4;
 }
 
 static uint32_t sx127x_rand()

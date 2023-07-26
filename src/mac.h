@@ -39,7 +39,7 @@
 #define CID_DI_CHANNEL 0x0A
 #define CID_DEVICE_TIME 0x0D
 
-void mac_handle_commands(const uint8_t *buf, uint8_t len);
+void mac_handle_commands(const uint8_t *buf, uint8_t len, int8_t snr);
 
 bool mac_enqueue_ans(uint8_t cid, const uint8_t *data, uint8_t size);
 

@@ -43,6 +43,9 @@
 #define LORAWAN_PRIVATE_SYNC_WORD_LSB 0x24
 #define LORAWAN_CFLIST_SIZE 16
 
+#define LORAWAN_MAC_BAT_LEVEL_EXT 0
+#define LORAWAN_MAC_BAT_LEVEL_UNKNOWN 255
+
 enum uwan_sf {
     UWAN_SF_6,
     UWAN_SF_7,
@@ -123,6 +126,14 @@ struct radio_hal {
     void (*ant_sw_ctrl)(bool is_rx); // optional
 };
 
+struct uwan_dl_packet {
+    uint8_t *data;
+    uint8_t size;
+    uint8_t f_port;
+    int16_t rssi;
+    int8_t snr;
+};
+
 struct uwan_packet_params {
     enum uwan_sf sf;
     enum uwan_bw bw;
@@ -131,6 +142,10 @@ struct uwan_packet_params {
     bool crc_on;
     bool inverted_iq;
     bool implicit_header;
+};
+
+struct uwan_mac_callbacks {
+    uint8_t (*get_battery_level)(void); // optional
 };
 
 struct radio_dev {
@@ -142,8 +157,7 @@ struct radio_dev {
     void (*setup)(const struct uwan_packet_params *params);
     void (*tx)(const uint8_t *buf, uint8_t len);
     void (*rx)(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
-    uint8_t (*read_packet)(void *buf, uint8_t buf_size, int16_t *rssi,
-        int8_t *snr);
+    void (*read_packet)(struct uwan_dl_packet *pkt);
     uint32_t (*rand)(void);
     void (*irq_handler)(void);
     void (*set_evt_handler)(void (*handler)(uint8_t evt_mask));
@@ -153,8 +167,7 @@ struct stack_hal {
     void (*start_timer)(enum uwan_timer_ids timer_id, uint32_t timeout_ms);
     void (*stop_timer)(enum uwan_timer_ids timer_id);
     void (*downlink_callback)(enum uwan_errs err, enum uwan_mtypes m_type,
-        uint8_t f_port, uint8_t *payload, uint8_t payload_size, int16_t rssi,
-        int8_t snr);
+        const struct uwan_dl_packet *pkt);
 };
 
 struct uwan_region {
@@ -255,5 +268,7 @@ bool uwan_adr_is_enabled(void);
 void uwan_adr_enable(bool enable);
 
 void uwan_adr_setup_ack(uint8_t limit, uint8_t delay);
+
+void uwan_set_mac_handlers(const struct uwan_mac_callbacks *cbs);
 
 #endif

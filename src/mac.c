@@ -27,24 +27,26 @@
 #include "adr.h"
 #include "mac.h"
 
+#define DEV_STATUS_MARGIN_MASK 0x3f
 #define LINK_ADR_REQ_PAYLOAD_SIZE 4
 #define MAC_BUF_SIZE 15
 
-static bool link_adr_parser(const uint8_t **start, const uint8_t *end);
-static bool dev_status_parser(const uint8_t **start, const uint8_t *end);
+static bool link_adr_parser(const uint8_t **start, const uint8_t *end, int snr);
+static bool dev_status_parser(const uint8_t **start, const uint8_t *end, int snr);
 
 static uint8_t mac_buf[MAC_BUF_SIZE];
 static uint8_t mac_buf_pos;
+static const struct uwan_mac_callbacks *mac_cbs;
 
 const struct {
     uint8_t cid;
-    bool (*handler)(const uint8_t **start, const uint8_t *end);
+    bool (*handler)(const uint8_t **start, const uint8_t *end, int snr);
 } mac_commands[] = {
     {CID_LINK_ADR, link_adr_parser},
     {CID_DEV_STATUS, dev_status_parser},
 };
 
-static bool link_adr_parser(const uint8_t **start, const uint8_t *end)
+static bool link_adr_parser(const uint8_t **start, const uint8_t *end, int snr)
 {
     const uint8_t *src = *start;
 
@@ -55,13 +57,25 @@ static bool link_adr_parser(const uint8_t **start, const uint8_t *end)
     return adr_handle_link_req(src[0], src[1] | src[2] << 8, src[3]);
 }
 
-static bool dev_status_parser(const uint8_t **start, const uint8_t *end)
+static bool dev_status_parser(const uint8_t **start, const uint8_t *end, int snr)
 {
-    uint8_t status[] = {254, 25}; // TODO
+    uint8_t status[] = {
+        LORAWAN_MAC_BAT_LEVEL_UNKNOWN,
+        (snr & DEV_STATUS_MARGIN_MASK),
+    };
+
+    if (mac_cbs && mac_cbs->get_battery_level)
+        status[0] = mac_cbs->get_battery_level();
+
     return mac_enqueue_ans(CID_DEV_STATUS, status, sizeof(status));
 }
 
-void mac_handle_commands(const uint8_t *buf, uint8_t len)
+void uwan_set_mac_handlers(const struct uwan_mac_callbacks *cbs)
+{
+    mac_cbs = cbs;
+}
+
+void mac_handle_commands(const uint8_t *buf, uint8_t len, int8_t snr)
 {
     const uint8_t *start = buf;
     const uint8_t *end = start + len;
@@ -72,7 +86,7 @@ void mac_handle_commands(const uint8_t *buf, uint8_t len)
 
         for (int i = 0; i < sizeof(mac_commands) / sizeof(mac_commands[0]); i++) {
             if (cid == mac_commands[i].cid) {
-                status = mac_commands[i].handler(&start, end);
+                status = mac_commands[i].handler(&start, end, snr);
                 break;
             }
         }

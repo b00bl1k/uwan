@@ -212,8 +212,9 @@ static void derive_session_key(uint8_t *key, uint8_t key_type,
     tc_aes_encrypt(key, key, &key_sched);
 }
 
-static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
+static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
 {
+    uint8_t *buf = pkt->data;
     uint8_t mhdr;
     uint8_t mic[MIC_LEN];
     uint8_t offset = 0;
@@ -221,9 +222,9 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
 
     tc_aes128_set_encrypt_key(&key_sched, uw_app_key);
 
-    if (size == (AES_BLOCK_SIZE + 1))
+    if (pkt->size == (AES_BLOCK_SIZE + 1))
         cflist = false;
-    else if (size == (2 * AES_BLOCK_SIZE + 1))
+    else if (pkt->size == (2 * AES_BLOCK_SIZE + 1))
         cflist = true;
     else
         return UWAN_ERR_MSG_LEN;
@@ -240,8 +241,8 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
             buf + sizeof(mhdr) + AES_BLOCK_SIZE, &key_sched);
     }
 
-    calc_mic(mic, buf, size - sizeof(mic), uw_app_key, 0, false);
-    if (memcmp(buf + size - sizeof(mic), mic, sizeof(mic)))
+    calc_mic(mic, buf, pkt->size - sizeof(mic), uw_app_key, 0, false);
+    if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
 
     uint32_t app_nonce, net_id;
@@ -276,8 +277,7 @@ static enum uwan_errs handle_join_msg(uint8_t *buf, uint8_t size)
     return UWAN_ERR_NO;
 }
 
-static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
-    uint8_t *f_port, uint8_t **pld, uint8_t *pld_size)
+static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
 {
     uint8_t mhdr;
     uint32_t dev_addr;
@@ -286,10 +286,11 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
     uint8_t f_opts_len;
     uint8_t mic[MIC_LEN];
     uint8_t offset = 0;
+    uint8_t *buf = pkt->data;
     uint8_t msg_min_size = sizeof(mhdr) + sizeof(dev_addr) + sizeof(f_ctrl)
         + sizeof(f_cnt) + sizeof(mic);
 
-    if (size < msg_min_size)
+    if (pkt->size < msg_min_size)
         return UWAN_ERR_MSG_LEN;
 
     mhdr = buf[offset++];
@@ -313,71 +314,69 @@ static enum uwan_errs handle_data_msg(uint8_t *buf, uint8_t size,
 
     f_ctrl = buf[offset++];
     f_opts_len = f_ctrl & FCTRL_FOPTS_MASK;
-    if (size < (msg_min_size + f_opts_len))
+    if (pkt->size < (msg_min_size + f_opts_len))
         return UWAN_ERR_MSG_LEN;
 
     f_cnt = buf[offset++];
     f_cnt |= buf[offset++] << 8;
 
     if (f_opts_len > 0)
-        mac_handle_commands(buf + offset, f_opts_len);
+        mac_handle_commands(buf + offset, f_opts_len, pkt->snr);
 
     offset += f_opts_len;
 
-    *pld_size = size - (msg_min_size + f_opts_len);
-    if (*pld_size > 0) {
-        *f_port = buf[offset++];
-        *pld = buf + offset;
-        *pld_size = *pld_size - 1;
+    uint8_t *pld;
+    uint8_t pld_size = pkt->size - (msg_min_size + f_opts_len);
+    if (pld_size > 0) {
+        pkt->f_port = buf[offset++];
+        pld = buf + offset;
+        pld_size--;
     }
 
     uw_session.f_cnt_down = f_cnt; // TODO
 
-    calc_mic(mic, buf, size - sizeof(mic), uw_session.nwk_s_key,
+    calc_mic(mic, buf, pkt->size - sizeof(mic), uw_session.nwk_s_key,
          B0_DIR_DOWNLINK, true);
-    if (memcmp(buf + size - sizeof(mic), mic, sizeof(mic)))
+    if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
 
-    if (*pld_size > 0) {
+    if (pld_size > 0) {
         const uint8_t *key;
-        key = (*f_port == 0) ? uw_session.nwk_s_key : uw_session.app_s_key;
-        encrypt_payload(*pld, *pld_size, key, B0_DIR_DOWNLINK);
+        key = (pkt->f_port == 0) ? uw_session.nwk_s_key : uw_session.app_s_key;
+        encrypt_payload(pld, pld_size, key, B0_DIR_DOWNLINK);
     }
 
     adr_handle_downlink();
+
+    pkt->data = pld;
+    pkt->size = pld_size;
 
     return UWAN_ERR_NO;
 }
 
 static void handle_downlink(enum uwan_errs err)
 {
-    uint8_t frame_size = 0;
-    int16_t rssi = 0;
-    int8_t snr = 0;
-    uint8_t f_port = 0;
-    uint8_t *pld = (void *)0;
-    uint8_t pld_size = 0;
+    struct uwan_dl_packet pkt = {0};
     enum uwan_mtypes mtype;
 
     if (err == UWAN_ERR_NO) {
-        frame_size = uw_radio->read_packet(uw_frame,
-            sizeof(uw_frame), &rssi, &snr);
+        pkt.data = uw_frame;
+        pkt.size = sizeof(uw_frame);
+        uw_radio->read_packet(&pkt);
     }
 
     uw_radio->sleep();
 
     if (err == UWAN_ERR_NO) {
         mtype = (enum uwan_mtypes)((uw_frame[0] >> MTYPE_OFFSET) & MTYPE_MASK);
-        if (uw_is_join_state) {
-            err = handle_join_msg(uw_frame, frame_size);
-        }
-        else {
-            err = handle_data_msg(uw_frame, frame_size, &f_port, &pld, &pld_size);
-        }
+        if (uw_is_join_state)
+            err = handle_join_msg(&pkt);
+        else
+            err = handle_data_msg(&pkt);
     }
 
     uw_is_join_state = false;
-    uw_stack_hal->downlink_callback(err, mtype, f_port, pld, pld_size, rssi, snr);
+    uw_stack_hal->downlink_callback(err, mtype, &pkt);
 }
 
 static void evt_handler(uint8_t evt_mask)

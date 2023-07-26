@@ -28,6 +28,9 @@
 #include <uwan/region/eu868.h>
 #include "utils.h"
 
+#define RSSI -120
+#define SNR -5
+
 static uint8_t radio_frame[256];
 static uint8_t radio_frame_size;
 static uint32_t radio_freq;
@@ -36,8 +39,11 @@ static enum uwan_sf radio_sf;
 static enum uwan_bw radio_bw;
 static enum uwan_cr radio_cr;
 static uint8_t radio_dio_irq;
+
 static enum uwan_errs app_err;
 static enum uwan_mtypes app_m_type;
+static int16_t app_snr;
+static int8_t app_rssi;
 static int app_downlink_callback_call_count;
 static void (*app_evt_handler)(uint8_t evt_mask);
 
@@ -89,12 +95,13 @@ static void radio_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout)
 {
 }
 
-static uint8_t radio_read_packet(void *buf, uint8_t buf_size, int16_t *rssi,
-    int8_t *snr)
+static void radio_read_packet(struct uwan_dl_packet *pkt)
 {
-    uint8_t size = buf_size < radio_frame_size ? buf_size : radio_frame_size;
-    memcpy(buf, radio_frame, size);
-    return size;
+    uint8_t size = pkt->size < radio_frame_size ? pkt->size : radio_frame_size;
+    memcpy(pkt->data, radio_frame, size);
+    pkt->size = size;
+    pkt->rssi = RSSI;
+    pkt->snr = SNR;
 }
 
 static uint32_t radio_rand(void)
@@ -145,12 +152,13 @@ void app_stop_timer(enum uwan_timer_ids timer_id)
 }
 
 void app_downlink_callback(enum uwan_errs err, enum uwan_mtypes m_type,
-    uint8_t f_port, uint8_t *payload, uint8_t payload_size, int16_t rssi,
-    int8_t snr)
+    const struct uwan_dl_packet *pkt)
 {
     app_downlink_callback_call_count++;
     app_err = err;
     app_m_type = m_type;
+    app_rssi = pkt->rssi;
+    app_snr = pkt->snr;
 }
 
 static const struct stack_hal app_hal = {
@@ -241,6 +249,9 @@ int main()
 
     test_join_successfull();
     test_send_uplink_successfull();
+
+    assert(RSSI == app_rssi);
+    assert(SNR == app_snr);
 
     return 0;
 }
