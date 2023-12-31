@@ -9,10 +9,10 @@ Simple and lightweight LoRaWAN messaging library in pure C.
 - [x] Class A
 - [ ] Class C
 - [x] Uplink
-- [ ] Downlink
-- [ ] MAC commands
+- [x] Downlink
+- [ ] MAC commands [in progress]
 - [x] SX127x
-- [ ] SX126x
+- [x] SX126x
 
 ## Benefits
 - pure C -> awesome
