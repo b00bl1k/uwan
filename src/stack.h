@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2023 Alexey Ryabov
+ * Copyright (c) 2023-2024 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,15 +27,19 @@
 
 #include <uwan/stack.h>
 
+#define NODE_SESSION_VERSION 1
+
 struct node_session {
+    uint8_t version;
+    uint16_t size;
+    uint8_t is_joined;
+    uint8_t ack_required;
+    uint8_t dr;
     uint32_t dev_addr;
     uint32_t f_cnt_up;
     uint32_t f_cnt_down;
     uint8_t nwk_s_key[UWAN_NWK_S_KEY_SIZE];
     uint8_t app_s_key[UWAN_APP_S_KEY_SIZE];
-    bool is_joined;
-    bool ack_required;
-    enum uwan_dr dr;
 };
 
 extern const struct uwan_region *uw_region;

@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021-2023 Alexey Ryabov
+ * Copyright (c) 2021-2024 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define BITS_PER_BYTE 8
@@ -41,5 +42,6 @@
 
 void utils_random_init(uint32_t seed);
 uint32_t utils_get_random(uint32_t max);
+uint8_t utils_checksum(const void *src, size_t size);
 
 #endif

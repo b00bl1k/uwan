@@ -4,9 +4,11 @@ project(uwan C)
 
 set(CMAKE_C_STANDARD 99)
 
+set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(TINYCRYPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/tinycrypt)
+set(TINYCRYPT_INC ${TINYCRYPT_DIR}/lib/include)
 set(TINYCRYPT_SRC
     ${TINYCRYPT_DIR}/lib/source/aes_encrypt.c
     ${TINYCRYPT_DIR}/lib/source/cmac_mode.c
@@ -27,11 +29,11 @@ set(LIB_SRC
 add_library(uwan STATIC ${LIB_SRC} ${TINYCRYPT_SRC})
 target_include_directories(uwan
     PRIVATE
-        "$SRC_DIR"
-        "${TINYCRYPT_DIR}/lib/include"
+        ${SRC_DIR}
+        ${TINYCRYPT_INC}
     PUBLIC
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${INC_DIR}>
 )
 set_target_properties(uwan PROPERTIES OUTPUT_NAME uwan)
 
