@@ -498,7 +498,7 @@ size_t uwan_save_session(void *dst, size_t dst_max_size)
     memcpy(dst, &uw_session, sizeof(uw_session));
 
     uint8_t cs = utils_checksum(dst, sizeof(uw_session));
-    uint8_t *buf = dst + sizeof(uw_session);
+    uint8_t *buf = (uint8_t *)dst + sizeof(uw_session);
     *buf = cs;
 
     return session_size;
