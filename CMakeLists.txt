@@ -17,6 +17,7 @@ set(TINYCRYPT_SRC
 set(LIB_SRC
     ${SRC_DIR}/device/sx127x.c
     ${SRC_DIR}/device/sx126x.c
+    ${SRC_DIR}/ext/clock_sync.c
     ${SRC_DIR}/region/common.c
     ${SRC_DIR}/region/eu868.c
     ${SRC_DIR}/region/ru864.c
