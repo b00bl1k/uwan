@@ -25,7 +25,7 @@
 #include <uwan/device/sx127x.h>
 
 /* export funcs for radio driver struct */
-static bool sx127x_init(const struct radio_hal *r_hal);
+static bool sx127x_init(const struct radio_hal *r_hal, const void *opts);
 static void sx127x_sleep(void);
 static void sx127x_set_freq(uint32_t freq);
 static bool sx127x_set_power(int8_t power);
@@ -216,7 +216,7 @@ static bool rx_calibartion(void)
     return timeout != 0;
 }
 
-static bool sx127x_init(const struct radio_hal *r_hal)
+static bool sx127x_init(const struct radio_hal *r_hal, const void *opts)
 {
     hal = r_hal;
 

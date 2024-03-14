@@ -167,6 +167,14 @@
 #define IRQ_MASK_CAD_DETECTED                   0x0100 // LoRa®
 #define IRQ_MASK_TIMEOUT                        0x0200 // All
 
+struct sx126x_opts {
+    bool is_hp;
+    bool use_dcdc;
+    bool use_tcxo;
+    uint16_t tcxo_timeout; // ms
+    uint8_t tcxo_voltage; // see TCXO_VOLTAGE_*
+};
+
 extern const struct radio_dev sx126x_dev;
 
 #endif /* ~__UWAN_DEVICE_SX126X_H__ */

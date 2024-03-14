@@ -37,6 +37,8 @@ struct {
     bool is_busy;
 } sx126x_state;
 
+uint16_t dev_errors;
+
 uint8_t hal_spi_xfer(uint8_t data)
 {
     uint8_t return_val = 0xff;
@@ -44,6 +46,17 @@ uint8_t hal_spi_xfer(uint8_t data)
     if (sx126x_state.pos == 0) {
         assert(radio_opcodes_count < sizeof(radio_opcodes));
         radio_opcodes[radio_opcodes_count++] = data;
+        sx126x_state.cmd = data;
+    }
+    else {
+        switch (sx126x_state.cmd) {
+        case SX126X_CMD_GET_DEVICE_ERRORS:
+            if (sx126x_state.pos == 2)
+                return_val = dev_errors >> 8;
+            else if (sx126x_state.pos == 3)
+                return_val = dev_errors & 0xff;
+            break;
+        }
     }
 
     sx126x_state.pos++;
@@ -89,12 +102,21 @@ unsigned int get_opcode_pos(uint8_t opcode)
     return 0;
 }
 
+const struct sx126x_opts opts = {
+    .is_hp = true,
+    .use_dcdc = true,
+    .use_tcxo = true,
+    .tcxo_timeout = 10,
+    .tcxo_voltage = TCXO_VOLTAGE_1_8V,
+};
+
 int main()
 {
     uint8_t payload[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     struct uwan_packet_params pkt_params;
 
-    assert(sx126x_dev.init(&my_hal));
+    dev_errors = 0x0;
+    assert(sx126x_dev.init(&my_hal, &opts));
 
     sx126x_dev.set_frequency(868900000);
     sx126x_dev.set_power(14);

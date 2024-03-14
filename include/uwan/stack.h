@@ -150,7 +150,7 @@ struct uwan_mac_callbacks {
 };
 
 struct radio_dev {
-    bool (*init)(const struct radio_hal *hal);
+    bool (*init)(const struct radio_hal *hal, const void *opts);
     void (*sleep)(void);
     void (*set_frequency)(uint32_t frequency);
     bool (*set_power)(int8_t power);

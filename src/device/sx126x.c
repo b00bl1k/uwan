@@ -30,7 +30,7 @@ static void wait_busy_on(void);
 static void check_device(void);
 
 /* export funcs for radio driver struct */
-static bool sx126x_init(const struct radio_hal *r_hal);
+static bool sx126x_init(const struct radio_hal *r_hal, const void *opts);
 static void sx126x_sleep(void);
 static void sx126x_set_freq(uint32_t freq);
 static bool sx126x_set_power(int8_t power);
@@ -45,6 +45,8 @@ static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
 
 /* private pointer to actual HAL */
 static const struct radio_hal *hal;
+
+static const struct sx126x_opts *dev_opts;
 
 static bool is_sleep;
 static void (*user_evt_handler)(uint8_t evt_mask);
@@ -225,6 +227,19 @@ static uint8_t read_buffer(uint8_t offset, void *buf, uint16_t size)
     return status;
 }
 
+static void setup_tcxo(uint8_t voltage, uint32_t timeout)
+{
+    timeout = (timeout << 6);
+    uint8_t tcxo[4] = {
+        voltage,
+        (uint8_t)(timeout >> 16),
+        (uint8_t)(timeout >> 8),
+        (uint8_t)timeout,
+    };
+    write_command(SX126X_CMD_SET_DIO3_AS_TCXO_CTRL, &tcxo, sizeof(tcxo));
+    write_register(REG_XTA_TRIM, 0);
+}
+
 static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq,
     bool implicit_header, uint8_t len)
 {
@@ -246,9 +261,13 @@ static void set_packet_params(uint16_t preamb_len, bool crc_on, bool inverted_iq
     write_command(SX126X_CMD_SET_PACKET_PARAMS, params, sizeof(params));
 }
 
-static bool sx126x_init(const struct radio_hal *r_hal)
+static bool sx126x_init(const struct radio_hal *r_hal, const void *opts)
 {
     hal = r_hal;
+    dev_opts = (const struct sx126x_opts *)opts;
+
+    if (!hal || !dev_opts)
+        return false;
 
     hal->reset(true);
     hal->delay_us(1000); // >100us
@@ -261,21 +280,18 @@ static bool sx126x_init(const struct radio_hal *r_hal)
 
     is_sleep = true;
 
-    // TODO cfg
-    const uint32_t tcxoTimeout = (10 << 6); // 10ms
-    uint8_t tcxo[4] = {
-        TCXO_VOLTAGE_1_8V,
-        (uint8_t)(tcxoTimeout >> 16),
-        (uint8_t)(tcxoTimeout >> 8),
-        (uint8_t)tcxoTimeout,
-    };
-    write_command(SX126X_CMD_SET_DIO3_AS_TCXO_CTRL, &tcxo, sizeof(tcxo));
-    write_register(REG_XTA_TRIM, 0);
+    if (dev_opts->use_tcxo)
+        setup_tcxo(dev_opts->tcxo_voltage, dev_opts->tcxo_timeout);
 
     const uint8_t calib_cfg = 0x7f;
     write_command(SX126X_CMD_CALIBRATE, &calib_cfg, sizeof(calib_cfg));
 
-    const uint8_t mode = 1; // TODO cfg
+    uint16_t op_error;
+    read_command(SX126X_CMD_GET_DEVICE_ERRORS, &op_error, sizeof(op_error));
+    if (op_error)
+        return false;
+
+    const uint8_t mode = dev_opts->use_dcdc ? 1 : 0;
     write_command(SX126X_CMD_SET_REGULATOR_MODE, &mode, sizeof(mode));
 
     sx126x_sleep();
@@ -327,10 +343,9 @@ static void sx126x_set_freq(uint32_t freq)
 
 static bool sx126x_set_power(int8_t power)
 {
-    bool is_lp = false;
     uint8_t pa_conf[] = {0x00, 0x00, 0x00, 0x01};
 
-    if (is_lp) {
+    if (dev_opts->is_hp == false) {
         if (power > 15 || power < -17)
             return false;
 
