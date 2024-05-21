@@ -280,6 +280,9 @@ static bool sx126x_init(const struct radio_hal *r_hal, const void *opts)
 
     is_sleep = true;
 
+    uint16_t op_clear = 0;
+    write_command(SX126X_CMD_CLEAR_DEVICE_ERRORS, &op_clear, sizeof(op_clear));
+
     if (dev_opts->use_tcxo)
         setup_tcxo(dev_opts->tcxo_voltage, dev_opts->tcxo_timeout);
 
