@@ -27,6 +27,10 @@
 
 #include <uwan/stack.h>
 
+#define NB_TRANS_MIN 1
+#define NB_TRANS_MAX 15
+#define TX_POWER_MAX 15
+
 #define NODE_SESSION_VERSION 1
 
 struct node_session {
@@ -44,5 +48,10 @@ struct node_session {
 
 extern const struct uwan_region *uw_region;
 extern struct node_session uw_session;
+
+bool set_nb_trans(uint8_t nb_trans);
+void reset_nb_trans(void);
+bool check_tx_power(uint8_t tx_power);
+bool set_tx_power(uint8_t tx_power);
 
 #endif

@@ -268,7 +268,31 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
  */
 void uwan_timer_callback(enum uwan_timer_ids timer_id);
 
-void uwan_set_default_dr(enum uwan_dr dr);
+/**
+ * \brief Set default datarate
+ */
+void uwan_set_dr(enum uwan_dr dr);
+
+/**
+ * \brief Set number of repeats for unconfirmed transmissions
+ *
+ * \param nb_trans number of repeats, valid values range from 1 to 15
+ */
+bool uwan_set_nb_trans(uint8_t nb_trans);
+
+/**
+ * \brief Set Max EIRP
+ *
+ * \param max_eirp value of Max EIRP
+ */
+void uwan_set_max_eirp(int8_t max_eirp);
+
+/**
+ * \brief Set index of tx power
+ *
+ * \param tx_power index of tx power, 0 equals max
+ */
+bool uwan_set_tx_power(uint8_t tx_power);
 
 bool uwan_adr_is_enabled(void);
 

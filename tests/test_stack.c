@@ -34,6 +34,7 @@
 static uint8_t radio_frame[256];
 static uint8_t radio_frame_size;
 static uint32_t radio_freq;
+static int8_t radio_power;
 static int radio_sleep_call_count;
 static enum uwan_sf radio_sf;
 static enum uwan_bw radio_bw;
@@ -71,6 +72,11 @@ static const uint8_t tx_payload[] = {
 static void radio_set_frequency(uint32_t frequency)
 {
     radio_freq = frequency;
+}
+
+bool radio_set_power(int8_t power)
+{
+    radio_power = power;
 }
 
 static void radio_sleep(void)
@@ -140,6 +146,7 @@ static void radio_set_evt_handler(void (*handler)(uint8_t evt_mask))
 
 static const struct radio_dev radio = {
     .set_frequency = radio_set_frequency,
+    .set_power = radio_set_power,
     .sleep = radio_sleep,
     .setup = radio_setup,
     .tx = radio_tx,
@@ -268,7 +275,8 @@ void test_save_restore_session()
 int main()
 {
     uwan_init(&radio, &app_hal, &region_eu868);
-    uwan_set_default_dr(UWAN_DR_5);
+    uwan_set_dr(UWAN_DR_5);
+    uwan_set_tx_power(1);
 
     test_join_successfull();
     test_send_uplink_successfull();
@@ -276,6 +284,7 @@ int main()
 
     assert(RSSI == app_rssi);
     assert(SNR == app_snr);
+    assert(12 == radio_power);
 
     return 0;
 }

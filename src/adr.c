@@ -88,11 +88,18 @@ bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
     if (uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, true))
         result |= STATUS_CH_MASK_ACK;
 
-    // TODO nbTrans, txPower
-    result |= STATUS_POWER_ACK;
+    uint8_t tx_power = dr_txpow & DRTX_TX_POWER_MASK;
+    if (check_tx_power(tx_power)) {
+        result |= STATUS_POWER_ACK;
+    }
 
     if (result == STATUS_OK) {
         // command succeed, change the state
+        uint8_t nb_trans = redundancy & REDUNDANCY_NB_TRANS_MASK;
+        if (set_nb_trans(nb_trans) == false)
+            reset_nb_trans();
+
+        set_tx_power(tx_power);
         uw_session.dr = (enum uwan_dr)dr;
         uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, false);
     }

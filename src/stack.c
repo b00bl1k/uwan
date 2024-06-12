@@ -61,7 +61,7 @@
 #define MIC_LEN 4
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
-#define MAX_FCNT_GAP 16384
+#define FCNT_GAP_MAX 16384
 
 enum stack_states {
     UWAN_STATE_NOT_INIT,
@@ -86,6 +86,10 @@ static const struct node_dr uw_dr_table[UWAN_DR_COUNT] = {
     {UWAN_SF_7, UWAN_BW_125},
 };
 
+static const uint8_t uw_tx_power_table[] = {
+    0, 2, 4, 6, 8, 10, 12, 14,
+};
+
 const struct uwan_region *uw_region;
 struct node_session uw_session;
 
@@ -103,6 +107,11 @@ static uint8_t uw_app_eui[UWAN_APP_EUI_SIZE];
 static uint8_t uw_app_key[UWAN_APP_KEY_SIZE];
 
 static enum uwan_dr default_dr = UWAN_DR_0;
+static uint8_t default_nb_trans = NB_TRANS_MIN;
+static uint8_t uw_nb_trans = NB_TRANS_MIN;
+static uint8_t default_tx_power = 0;
+static uint8_t uw_tx_power = 0;
+static int8_t default_max_eirp = 14;
 
 /* RX2 window settings */
 static uint32_t uw_rx2_frequency;
@@ -111,6 +120,12 @@ static enum uwan_dr uw_rx2_dr;
 /* Encryption variables */
 static struct tc_aes_key_sched_struct key_sched;
 static struct tc_cmac_struct cmac_state;
+
+static void apply_tx_power(void)
+{
+    int power = default_max_eirp - uw_tx_power_table[uw_tx_power];
+    uw_radio->set_power(power);
+}
 
 static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
     uint8_t dir)
@@ -560,6 +575,7 @@ enum uwan_errs uwan_join()
     pkt_params.inverted_iq = false;
     uw_radio->set_frequency(frequency);
     uw_radio->setup(&pkt_params);
+    apply_tx_power();
 
     uw_session.is_joined = false;
     uw_is_join_state = true;
@@ -609,12 +625,13 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     pkt_params.inverted_iq = false;
     uw_radio->set_frequency(frequency);
     uw_radio->setup(&pkt_params);
+    apply_tx_power();
 
     uint8_t mtype;
     if (confirm)
         mtype = UWAN_MTYPE_CONF_DATA_UP;
     else
-        mtype = UWAN_MTYPE_UNCONF_DATA_UP;
+        mtype = UWAN_MTYPE_UNCONF_DATA_UP; // TODO take into account nbTrans
 
     uw_frame[offset++] = (mtype << MTYPE_OFFSET) | MAJOR_LORAWAN_R1;
     uw_frame[offset++] = uw_session.dev_addr & 0xff;
@@ -671,8 +688,64 @@ void uwan_timer_callback(enum uwan_timer_ids timer_id)
     }
 }
 
-void uwan_set_default_dr(enum uwan_dr dr)
+void uwan_set_dr(enum uwan_dr dr)
 {
     if (dr < UWAN_DR_COUNT)
-        default_dr = dr;
+        default_dr = uw_session.dr = dr;
+}
+
+bool uwan_set_nb_trans(uint8_t nb_trans)
+{
+    if (set_nb_trans(nb_trans)) {
+        default_nb_trans = nb_trans;
+        return true;
+    }
+
+    return false;
+}
+
+void uwan_set_max_eirp(int8_t max_eirp)
+{
+    default_max_eirp = max_eirp;
+}
+
+bool uwan_set_tx_power(uint8_t tx_power)
+{
+    if (set_tx_power(tx_power)) {
+        default_tx_power = tx_power;
+        return true;
+    }
+
+    return false;
+}
+
+bool set_nb_trans(uint8_t nb_trans)
+{
+    if (nb_trans >= NB_TRANS_MIN && nb_trans <= NB_TRANS_MAX) {
+        uw_nb_trans = nb_trans;
+        return true;
+    }
+
+    return false;
+}
+
+void reset_nb_trans()
+{
+    uw_nb_trans = default_nb_trans;
+}
+
+bool check_tx_power(uint8_t tx_power)
+{
+    uint8_t count = sizeof(uw_tx_power_table) / sizeof(uw_tx_power_table[0]);
+    return (tx_power < count);
+}
+
+bool set_tx_power(uint8_t tx_power)
+{
+    if (check_tx_power(tx_power)) {
+        uw_tx_power = tx_power;
+        return true;
+    }
+
+    return false;
 }
