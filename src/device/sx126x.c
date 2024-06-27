@@ -40,7 +40,7 @@ static void sx126x_tx(const uint8_t *buf, uint8_t len);
 static void sx126x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
 static void sx126x_read_packet(struct uwan_dl_packet *pkt);
 static uint32_t sx126x_rand(void);
-static void sx126x_irq_handler(void);
+static uint8_t sx126x_irq_handler(void);
 static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
 
 /* private pointer to actual HAL */
@@ -488,7 +488,7 @@ static uint32_t sx126x_rand()
     return result;
 }
 
-static void sx126x_irq_handler()
+static uint8_t sx126x_irq_handler()
 {
     uint8_t buf[2];
 
@@ -512,6 +512,8 @@ static void sx126x_irq_handler()
 
     if (user_evt_handler)
         user_evt_handler(result);
+
+    return result;
 }
 
 static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask))

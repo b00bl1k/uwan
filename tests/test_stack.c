@@ -133,10 +133,12 @@ uint8_t utils_checksum(const void *src, size_t size)
     return cs;
 }
 
-static void radio_irq_handler(void)
+static uint8_t radio_irq_handler(void)
 {
     if (app_evt_handler)
         app_evt_handler(radio_dio_irq);
+
+    return radio_dio_irq;
 }
 
 static void radio_set_evt_handler(void (*handler)(uint8_t evt_mask))

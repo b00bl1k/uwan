@@ -160,7 +160,7 @@ struct radio_dev {
     void (*rx)(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
     void (*read_packet)(struct uwan_dl_packet *pkt);
     uint32_t (*rand)(void);
-    void (*irq_handler)(void);
+    uint8_t (*irq_handler)(void);
     void (*set_evt_handler)(void (*handler)(uint8_t evt_mask));
 };
 

@@ -35,7 +35,7 @@ static void sx127x_tx(const uint8_t *buf, uint8_t len);
 static void sx127x_rx(uint8_t len, uint16_t symb_timeout, uint32_t timeout);
 static void sx127x_read_packet(struct uwan_dl_packet *pkt);
 static uint32_t sx127x_rand(void);
-static void sx127x_irq_handler(void);
+static uint8_t sx127x_irq_handler(void);
 static void sx127x_set_evt_handler(void (*handler)(uint8_t evt_mask));
 
 /* lookup table for spreading factor */
@@ -418,7 +418,7 @@ static uint32_t sx127x_rand()
     return random;
 }
 
-static void sx127x_irq_handler()
+static uint8_t sx127x_irq_handler()
 {
     uint8_t result = 0;
     uint8_t flags = read_reg(SX127X_REG_LR_IRQ_FLAGS);
@@ -448,6 +448,8 @@ static void sx127x_irq_handler()
 
     if (user_evt_handler)
         user_evt_handler(result);
+
+    return result;
 }
 
 static void sx127x_set_evt_handler(void (*handler)(uint8_t evt_mask))
