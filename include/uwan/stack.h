@@ -253,11 +253,18 @@ enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 enum uwan_errs uwan_join(void);
 
 /**
+ * \brief Return maximum payload size available for application
+ *
+ * The application payload size depends on fOpts field size
+ */
+uint8_t uwan_get_max_payload_size(void);
+
+/**
  * \brief Send uplink
  *
  * \param f_port application-specific port field (1..223)
- * \param payload pointer to payload
- * \param pld_len size of payload
+ * \param payload pointer to payload, can be null if pld_len == 0
+ * \param pld_len size of payload, can be zero to send MAC payload only
  * \param confirm send uplink with confirmation if true
  */
 enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,

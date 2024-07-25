@@ -90,6 +90,10 @@ static const uint8_t uw_tx_power_table[] = {
     0, 2, 4, 6, 8, 10, 12, 14,
 };
 
+static const uint8_t uw_max_app_pld_size[] = {
+    51, 51, 51, 115, 222, 222,
+};
+
 const struct uwan_region *uw_region;
 struct node_session uw_session;
 
@@ -602,6 +606,26 @@ enum uwan_errs uwan_join()
     return UWAN_ERR_NO;
 }
 
+uint8_t uwan_get_max_payload_size()
+{
+    uint8_t dr, max_pld_size = 0;
+
+    if (uwan_adr_is_enabled())
+        dr = uw_session.dr;
+    else
+        dr = default_dr;
+
+    if (dr < sizeof(uw_max_app_pld_size) / sizeof(uw_max_app_pld_size[0]))
+        max_pld_size = uw_max_app_pld_size[dr];
+
+    if (max_pld_size >= mac_get_payload_size())
+        max_pld_size -= mac_get_payload_size();
+    else
+        max_pld_size = 0;
+
+    return max_pld_size;
+}
+
 enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uint8_t pld_len, bool confirm)
 {
@@ -613,6 +637,13 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uint32_t frequency = channels_get_next();
     if (!frequency)
         return UWAN_ERR_CHANNEL;
+
+    if (pld_len > uwan_get_max_payload_size())
+        return UWAN_ERR_MSG_LEN;
+
+    uint8_t mac_pld_size = mac_get_payload_size();
+    if (!pld_len && !mac_pld_size)
+        return UWAN_ERR_MSG_LEN;
 
     const struct node_dr *dr;
     if (uwan_adr_is_enabled())
@@ -654,13 +685,14 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     uw_frame[offset++] = (uw_session.f_cnt_up >> 8) & 0xff;
     offset += mac_get_payload(uw_frame + offset, 15);
 
-    uw_frame[offset++] = f_port; // optional
-
-    memcpy(&uw_frame[offset], payload, pld_len);
-    // Encrypt FRMPayload before MIC calculation
-    encrypt_payload(&uw_frame[offset], pld_len, uw_session.app_s_key,
-        B0_DIR_UPLINK);
-    offset += pld_len;
+    if (pld_len) {
+        uw_frame[offset++] = f_port; // optional
+        memcpy(&uw_frame[offset], payload, pld_len);
+        // Encrypt FRMPayload before MIC calculation
+        encrypt_payload(&uw_frame[offset], pld_len, uw_session.app_s_key,
+            B0_DIR_UPLINK);
+        offset += pld_len;
+    }
 
     calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key,
         B0_DIR_UPLINK, true);

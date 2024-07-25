@@ -233,6 +233,19 @@ void test_join_successfull()
     assert(uwan_is_joined());
 }
 
+void test_send_uplink_fail()
+{
+    enum uwan_errs result;
+
+    const uint8_t f_port = 4;
+    const bool confirm = true;
+
+    uint8_t pld[223];
+
+    result = uwan_send_frame(f_port, pld, sizeof(pld), confirm);
+    assert(result == UWAN_ERR_MSG_LEN);
+}
+
 void test_send_uplink_successfull()
 {
     enum uwan_errs result;
@@ -281,6 +294,7 @@ int main()
     uwan_set_tx_power(1);
 
     test_join_successfull();
+    test_send_uplink_fail();
     test_send_uplink_successfull();
     test_save_restore_session();
 
