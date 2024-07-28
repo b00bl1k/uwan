@@ -80,7 +80,7 @@ bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
     uint8_t result = 0;
 
     uint8_t dr = (dr_txpow >> DRTX_DR_SHIFT) & DRTX_DR_MASK;
-    if (dr < UWAN_DR_COUNT)
+    if (is_valid_dr(dr))
         result |= STATUS_DR_ACK;
 
     uint8_t ch_mask_cntl = (redundancy >> REDUNDANCY_CH_MASK_CNTL_SHIFT) &
@@ -89,12 +89,11 @@ bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
         result |= STATUS_CH_MASK_ACK;
 
     uint8_t tx_power = dr_txpow & DRTX_TX_POWER_MASK;
-    if (check_tx_power(tx_power)) {
+    if (is_valid_tx_power(tx_power)) {
         result |= STATUS_POWER_ACK;
     }
 
     if (result == STATUS_OK) {
-        // command succeed, change the state
         uint8_t nb_trans = redundancy & REDUNDANCY_NB_TRANS_MASK;
         if (set_nb_trans(nb_trans) == false)
             reset_nb_trans();

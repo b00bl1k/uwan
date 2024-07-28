@@ -7,9 +7,18 @@
 
 uint32_t random_val;
 
+void utils_random_init(uint32_t seed)
+{
+}
+
 uint32_t utils_get_random(uint32_t max)
 {
     return random_val;
+}
+
+uint8_t utils_checksum(const void *src, size_t size)
+{
+    return 0xff;
 }
 
 int main()

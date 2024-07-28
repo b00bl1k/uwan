@@ -77,7 +77,7 @@ enum uwan_dr {
     UWAN_DR_3,
     UWAN_DR_4,
     UWAN_DR_5,
-    // other datarates not support yet
+    // other datarates aren't supported yet
     UWAN_DR_COUNT,
 };
 
@@ -86,6 +86,7 @@ enum uwan_errs {
     UWAN_ERR_STATE,
     UWAN_ERR_DATARATE,
     UWAN_ERR_CHANNEL,
+    UWAN_ERR_FREQUENCY,
     UWAN_ERR_RX_TIMEOUT,
     UWAN_ERR_RX_CRC,
     UWAN_ERR_MSG_LEN,
@@ -146,7 +147,7 @@ struct uwan_packet_params {
 };
 
 struct uwan_mac_callbacks {
-    uint8_t (*get_battery_level)(void); // optional
+    uint8_t (*get_battery_level)(void); // optional, see ch. 5.5 of LoRaWAN spec
 };
 
 struct radio_dev {
@@ -300,6 +301,20 @@ void uwan_set_max_eirp(int8_t max_eirp);
  * \param tx_power index of tx power, 0 equals max
  */
 bool uwan_set_tx_power(uint8_t tx_power);
+
+/**
+ * \brief Set RX1 datarate offset
+ *
+ * \param rx1_dr_offset offset index from 0 to 5
+ */
+bool uwan_set_rx1_dr_offset(uint8_t rx1_dr_offset);
+
+/**
+ * \brief Set RX1 delay
+ *
+ * \param delay new delay in seconds from 1 to 15
+ */
+bool uwan_set_rx1_delay(uint8_t delay);
 
 bool uwan_adr_is_enabled(void);
 

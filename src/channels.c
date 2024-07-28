@@ -28,6 +28,7 @@
 
 #include <uwan/stack.h>
 #include "channels.h"
+#include "stack.h"
 #include "utils.h"
 
 #define MAX_CHANNELS 16
@@ -108,6 +109,9 @@ enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency)
 {
     if (index >= MAX_CHANNELS)
         return UWAN_ERR_CHANNEL;
+
+    if (!is_valid_frequency(frequency))
+        return UWAN_ERR_FREQUENCY;
 
     uw_channels[index] = frequency;
     uwan_enable_channel(index, true);

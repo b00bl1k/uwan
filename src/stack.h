@@ -49,9 +49,11 @@ struct node_session {
 extern const struct uwan_region *uw_region;
 extern struct node_session uw_session;
 
+bool is_valid_dr(uint8_t dr);
+bool is_valid_frequency(uint32_t freq);
 bool set_nb_trans(uint8_t nb_trans);
 void reset_nb_trans(void);
-bool check_tx_power(uint8_t tx_power);
+bool is_valid_tx_power(uint8_t tx_power);
 bool set_tx_power(uint8_t tx_power);
 
 #endif

@@ -40,6 +40,8 @@ static void ru864_init()
 {
     uwan_set_channel(0, 868900000);
     uwan_set_channel(1, 869100000);
+    uwan_set_rx1_delay(1);
+    uwan_set_rx1_dr_offset(0);
     uwan_set_rx2(869100000, UWAN_DR_0);
 }
 

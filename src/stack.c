@@ -51,10 +51,9 @@
 
 #define AES_BLOCK_SIZE 16
 
-#define RECEIVE_DELAY1 1000
-#define RECEIVE_DELAY2 2000
-#define JOIN_ACCEPT_DELAY1 5000
-#define JOIN_ACCEPT_DELAY2 6000
+#define RX1_DELAY 1000
+#define JOIN_DELAY 5000
+#define SECOND_RX_OFFSET 1000
 
 #define B0_DIR_UPLINK 0
 #define B0_DIR_DOWNLINK 1
@@ -62,6 +61,9 @@
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
 #define FCNT_GAP_MAX 16384
+
+#define FREQ_MIN 860000000
+#define FREQ_MAX 870000000
 
 enum stack_states {
     UWAN_STATE_NOT_INIT,
@@ -103,6 +105,7 @@ static struct uwan_packet_params pkt_params;
 static uint8_t uw_frame[FRAME_MAX_SIZE];
 static enum stack_states uw_state = UWAN_STATE_NOT_INIT;
 static uint32_t uw_rx1_delay;
+static uint8_t uw_rx1_offset;
 static uint32_t uw_rx2_delay;
 static bool uw_is_join_state;
 static uint32_t uw_dev_nonce;
@@ -110,6 +113,8 @@ static uint8_t uw_dev_eui[UWAN_DEV_EUI_SIZE];
 static uint8_t uw_app_eui[UWAN_APP_EUI_SIZE];
 static uint8_t uw_app_key[UWAN_APP_KEY_SIZE];
 
+static uint32_t default_join_delay = JOIN_DELAY;
+static uint32_t default_rx1_delay = RX1_DELAY;
 static enum uwan_dr default_dr = UWAN_DR_0;
 static uint8_t default_nb_trans = NB_TRANS_MIN;
 static uint8_t uw_nb_trans = NB_TRANS_MIN;
@@ -129,6 +134,14 @@ static void apply_tx_power(void)
 {
     int power = default_max_eirp - uw_tx_power_table[uw_tx_power];
     uw_radio->set_power(power);
+}
+
+static enum uwan_dr get_current_dr(void)
+{
+    if (uwan_adr_is_enabled())
+        return uw_session.dr;
+
+    return default_dr;
 }
 
 static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
@@ -279,8 +292,20 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
     dev_addr |= buf[offset++] << 16;
     dev_addr |= buf[offset++] << 24;
 
-    offset++; // TODO DLSettings
-    offset++; // TODO RxDelay
+    // TODO duplicated code, see mac.c rx_param_setup function
+    uint8_t dl_settings = buf[offset++];
+    uint8_t rx1_dr_offset = (dl_settings >> 4) & 7;
+    uint8_t rx2_dr = dl_settings & 0xf;
+    if (is_valid_dr(rx1_dr_offset))
+        uw_rx1_offset = rx1_dr_offset;
+    if (is_valid_dr(rx2_dr))
+        uw_rx2_dr = rx2_dr;
+
+    // TODO duplicated code, see mac.c rx_timing_setup function
+    uint8_t rx1_delay = buf[offset++] & 0xf;
+    if (rx1_delay == 0)
+        rx1_delay = 1;
+    default_rx1_delay = rx1_delay;
 
     if (cflist)
         uw_region->handle_cflist(buf + offset);
@@ -410,6 +435,17 @@ static void evt_handler(uint8_t evt_mask)
             uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
             uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
 
+            if (uw_rx1_offset) {
+                enum uwan_dr dr_id = get_current_dr();
+                if (uw_rx1_offset > dr_id)
+                    dr_id = UWAN_DR_0;
+                else
+                    dr_id -= uw_rx1_offset;
+                const struct node_dr *dr = &uw_dr_table[dr_id];
+                pkt_params.sf = dr->sf;
+                pkt_params.bw = dr->bw;
+            }
+
             pkt_params.inverted_iq = true;
             uw_radio->setup(&pkt_params);
         }
@@ -463,11 +499,11 @@ void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
     uw_stack_hal = stack;
     uw_region = region;
 
-
     memset(&uw_session, 0, sizeof(uw_session));
 
     radio->set_evt_handler(evt_handler);
 
+    mac_init();
     channels_init();
     uw_region->init();
     utils_random_init(radio->rand());
@@ -552,8 +588,11 @@ bool uwan_is_joined()
 
 enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
 {
-    if (dr >= UWAN_DR_COUNT)
+    if (!is_valid_dr(dr))
         return UWAN_ERR_DATARATE;
+
+    if (!is_valid_frequency(frequency))
+        return UWAN_ERR_FREQUENCY;
 
     uw_rx2_frequency = frequency;
     uw_rx2_dr = dr;
@@ -598,8 +637,8 @@ enum uwan_errs uwan_join()
         false);
     offset += 4;
 
-    uw_rx1_delay = JOIN_ACCEPT_DELAY1;
-    uw_rx2_delay = JOIN_ACCEPT_DELAY2;
+    uw_rx1_delay = default_join_delay;
+    uw_rx2_delay = default_join_delay + SECOND_RX_OFFSET;
     uw_state = UWAN_STATE_TX;
     uw_radio->tx(uw_frame, offset);
 
@@ -608,12 +647,8 @@ enum uwan_errs uwan_join()
 
 uint8_t uwan_get_max_payload_size()
 {
-    uint8_t dr, max_pld_size = 0;
-
-    if (uwan_adr_is_enabled())
-        dr = uw_session.dr;
-    else
-        dr = default_dr;
+    uint8_t max_pld_size = 0;
+    enum uwan_dr dr = get_current_dr();
 
     if (dr < sizeof(uw_max_app_pld_size) / sizeof(uw_max_app_pld_size[0]))
         max_pld_size = uw_max_app_pld_size[dr];
@@ -645,12 +680,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     if (!pld_len && !mac_pld_size)
         return UWAN_ERR_MSG_LEN;
 
-    const struct node_dr *dr;
-    if (uwan_adr_is_enabled())
-        dr = &uw_dr_table[uw_session.dr];
-    else
-        dr = &uw_dr_table[default_dr];
-
+    const struct node_dr *dr = &uw_dr_table[get_current_dr()];
     pkt_params.sf = dr->sf;
     pkt_params.bw = dr->bw;
     pkt_params.inverted_iq = false;
@@ -700,8 +730,8 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 
     uw_session.f_cnt_up++;
 
-    uw_rx1_delay = RECEIVE_DELAY1;
-    uw_rx2_delay = RECEIVE_DELAY2;
+    uw_rx1_delay = default_rx1_delay;
+    uw_rx2_delay = default_rx1_delay + SECOND_RX_OFFSET;
     uw_state = UWAN_STATE_TX;
     uw_radio->tx(uw_frame, offset);
 
@@ -722,7 +752,7 @@ void uwan_timer_callback(enum uwan_timer_ids timer_id)
 
 void uwan_set_dr(enum uwan_dr dr)
 {
-    if (dr < UWAN_DR_COUNT)
+    if (is_valid_dr(dr))
         default_dr = uw_session.dr = dr;
 }
 
@@ -751,6 +781,36 @@ bool uwan_set_tx_power(uint8_t tx_power)
     return false;
 }
 
+bool uwan_set_rx1_dr_offset(uint8_t rx1_dr_offset)
+{
+    if (is_valid_dr(rx1_dr_offset)) {
+        uw_rx1_offset = rx1_dr_offset;
+        return true;
+    }
+
+    return false;
+}
+
+bool uwan_set_rx1_delay(uint8_t delay)
+{
+    if (delay >= 1 && delay <= 15) {
+        default_rx1_delay = delay * 1000;
+        return true;
+    }
+
+    return false;
+}
+
+bool is_valid_dr(uint8_t dr)
+{
+    return (dr < UWAN_DR_COUNT);
+}
+
+bool is_valid_frequency(uint32_t freq)
+{
+    return (freq >= FREQ_MIN && freq <= FREQ_MAX);
+}
+
 bool set_nb_trans(uint8_t nb_trans)
 {
     if (nb_trans >= NB_TRANS_MIN && nb_trans <= NB_TRANS_MAX) {
@@ -766,7 +826,7 @@ void reset_nb_trans()
     uw_nb_trans = default_nb_trans;
 }
 
-bool check_tx_power(uint8_t tx_power)
+bool is_valid_tx_power(uint8_t tx_power)
 {
     uint8_t count = sizeof(uw_tx_power_table) / sizeof(uw_tx_power_table[0]);
     return (tx_power < count);
@@ -774,7 +834,7 @@ bool check_tx_power(uint8_t tx_power)
 
 bool set_tx_power(uint8_t tx_power)
 {
-    if (check_tx_power(tx_power)) {
+    if (is_valid_tx_power(tx_power)) {
         uw_tx_power = tx_power;
         return true;
     }

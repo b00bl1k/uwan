@@ -3,14 +3,15 @@
 Simple and lightweight LoRaWAN messaging library in pure C.
 
 ## Features
-- LoRaWAN Specification 1.0.3
+- Supported LoRaWAN specification: 1.0.2, 1.0.3
+- Supported regions: EU868, RU864
 - [x] ABP
 - [x] OTAA
 - [x] Class A
 - [ ] Class C
 - [x] Uplink
 - [x] Downlink
-- [ ] MAC commands [in progress]
+- [x] MAC commands
 - [x] SX127x
 - [x] SX126x
 

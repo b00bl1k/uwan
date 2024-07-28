@@ -41,5 +41,16 @@ set_target_properties(uwan PROPERTIES OUTPUT_NAME uwan)
 option(BUILD_TESTING "Build and run tests" ON)
 if (${BUILD_TESTING})
     enable_testing()
+
+    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+    include(CodeCoverage)
+    setup_target_for_coverage_lcov(
+        NAME coverage
+        EXECUTABLE ctest
+        EXCLUDE "tests/*" "vendor/*"
+    )
+
+    append_coverage_compiler_flags()
+
     add_subdirectory(tests)
 endif()
