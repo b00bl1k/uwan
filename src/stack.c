@@ -305,7 +305,7 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
     uint8_t rx1_delay = buf[offset++] & 0xf;
     if (rx1_delay == 0)
         rx1_delay = 1;
-    default_rx1_delay = rx1_delay;
+    default_rx1_delay = rx1_delay * 1000;
 
     if (cflist)
         uw_region->handle_cflist(buf + offset);
