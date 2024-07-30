@@ -60,7 +60,7 @@
 #define MIC_LEN 4
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
-#define FCNT_GAP_MAX 16384
+#define MAX_FCNT_GAP 16384
 
 #define FREQ_MIN 860000000
 #define FREQ_MAX 870000000
@@ -121,6 +121,7 @@ static uint8_t uw_nb_trans = NB_TRANS_MIN;
 static uint8_t default_tx_power = 0;
 static uint8_t uw_tx_power = 0;
 static int8_t default_max_eirp = 14;
+static int8_t current_snr;
 
 /* RX2 window settings */
 static uint32_t uw_rx2_frequency;
@@ -364,8 +365,30 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
     f_cnt = buf[offset++];
     f_cnt |= buf[offset++] << 8;
 
+    if (uw_session.f_cnt_down == 0) {
+        // accept initial value
+        uw_session.f_cnt_down = f_cnt;
+    }
+    else {
+        uint16_t f_cnt_prev = (uint16_t)uw_session.f_cnt_down;
+        uint16_t f_cnt_diff = f_cnt - f_cnt_prev;
+
+        if (f_cnt_diff == 0)
+            return UWAN_ERR_FCNT;
+
+        if (f_cnt_diff <= MAX_FCNT_GAP)
+            uw_session.f_cnt_down += f_cnt_diff;
+        else {
+            // considering counter rollover
+            uint32_t f_cnt_hi = uw_session.f_cnt_down & 0xffff0000;
+            uw_session.f_cnt_down = f_cnt_hi + 0x10000 + f_cnt;
+        }
+    }
+
+    current_snr = pkt->snr;
+
     if (f_opts_len > 0)
-        mac_handle_commands(buf + offset, f_opts_len, pkt->snr);
+        mac_handle_commands(buf + offset, f_opts_len);
 
     offset += f_opts_len;
 
@@ -376,8 +399,6 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
         pld = buf + offset;
         pld_size--;
     }
-
-    uw_session.f_cnt_down = f_cnt; // TODO
 
     calc_mic(mic, buf, pkt->size - sizeof(mic), uw_session.nwk_s_key,
          B0_DIR_DOWNLINK, true);
@@ -840,4 +861,9 @@ bool set_tx_power(uint8_t tx_power)
     }
 
     return false;
+}
+
+int8_t get_snr()
+{
+    return current_snr;
 }

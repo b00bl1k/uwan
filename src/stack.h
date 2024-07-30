@@ -55,5 +55,6 @@ bool set_nb_trans(uint8_t nb_trans);
 void reset_nb_trans(void);
 bool is_valid_tx_power(uint8_t tx_power);
 bool set_tx_power(uint8_t tx_power);
+int8_t get_snr(void);
 
 #endif

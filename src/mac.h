@@ -41,7 +41,7 @@
 
 void mac_init(void);
 
-void mac_handle_commands(const uint8_t *buf, uint8_t len, int8_t snr);
+void mac_handle_commands(const uint8_t *buf, uint8_t len);
 
 bool mac_enqueue_ans(uint8_t cid, const uint8_t *data, uint8_t size);
 

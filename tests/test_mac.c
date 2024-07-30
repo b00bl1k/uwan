@@ -47,6 +47,11 @@ enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
     return true;
 }
 
+int8_t get_snr()
+{
+    return -10;
+}
+
 int main()
 {
     mac_init();
@@ -63,7 +68,7 @@ int main()
         CID_TX_PARAM_SETUP, 0x00,
         CID_DI_CHANNEL, 0x00, 0x40, 0x72, 0x84,
     };
-    mac_handle_commands(mac_rq_pld, sizeof(mac_rq_pld), -10);
+    mac_handle_commands(mac_rq_pld, sizeof(mac_rq_pld));
 
     assert(rx1_dr_offset == 1);
     assert(rx1_delay == 1);

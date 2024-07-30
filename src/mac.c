@@ -49,14 +49,14 @@
 
 #define MAC_BUF_SIZE 15
 
-static bool link_adr(const uint8_t *pld, int snr);
-static bool duty_cycle(const uint8_t *pld, int snr);
-static bool rx_param_setup(const uint8_t *pld, int snr);
-static bool dev_status(const uint8_t *pld, int snr);
-static bool new_channel(const uint8_t *pld, int snr);
-static bool rx_timing_setup(const uint8_t *pld, int snr);
-static bool tx_param_setup(const uint8_t *pld, int snr);
-static bool di_channel(const uint8_t *pld, int snr);
+static bool link_adr(const uint8_t *pld);
+static bool duty_cycle(const uint8_t *pld);
+static bool rx_param_setup(const uint8_t *pld);
+static bool dev_status(const uint8_t *pld);
+static bool new_channel(const uint8_t *pld);
+static bool rx_timing_setup(const uint8_t *pld);
+static bool tx_param_setup(const uint8_t *pld);
+static bool di_channel(const uint8_t *pld);
 
 static uint8_t mac_buf[MAC_BUF_SIZE];
 static uint8_t mac_buf_pos;
@@ -64,7 +64,7 @@ static const struct uwan_mac_callbacks *mac_cbs;
 
 const struct {
     uint8_t cid;
-    bool (*handler)(const uint8_t *pld, int snr);
+    bool (*handler)(const uint8_t *pld);
     uint8_t pld_size;
 } mac_commands[] = {
     {CID_LINK_ADR, link_adr, LINK_ADR_REQ_PAYLOAD_SIZE},
@@ -77,18 +77,18 @@ const struct {
     {CID_DI_CHANNEL, di_channel, DI_CHANNEL_PAYLOAD_SIZE},
 };
 
-static bool link_adr(const uint8_t *pld, int snr)
+static bool link_adr(const uint8_t *pld)
 {
     return adr_handle_link_req(pld[0], pld[1] | pld[2] << 8, pld[3]);
 }
 
-static bool duty_cycle(const uint8_t *pld, int snr)
+static bool duty_cycle(const uint8_t *pld)
 {
     // TODO handle DutyCyclePL
     return mac_enqueue_ans(CID_DUTY_CYCLE, NULL, 0);
 }
 
-static bool rx_param_setup(const uint8_t *pld, int snr)
+static bool rx_param_setup(const uint8_t *pld)
 {
     uint8_t dl_settings = pld[0];
     uint8_t rx1_dr_offset = (dl_settings >> 4) & 7;
@@ -115,11 +115,11 @@ static bool rx_param_setup(const uint8_t *pld, int snr)
     return mac_enqueue_ans(CID_RX_PARAM_SETUP, &status, sizeof(status));
 }
 
-static bool dev_status(const uint8_t *pld, int snr)
+static bool dev_status(const uint8_t *pld)
 {
     uint8_t status[] = {
         LORAWAN_MAC_BAT_LEVEL_UNKNOWN,
-        (snr & DEV_STATUS_MARGIN_MASK),
+        (get_snr() & DEV_STATUS_MARGIN_MASK),
     };
 
     if (mac_cbs && mac_cbs->get_battery_level)
@@ -128,7 +128,7 @@ static bool dev_status(const uint8_t *pld, int snr)
     return mac_enqueue_ans(CID_DEV_STATUS, status, sizeof(status));
 }
 
-static bool new_channel(const uint8_t *pld, int snr)
+static bool new_channel(const uint8_t *pld)
 {
     uint8_t ch_index = pld[0];
     uint32_t freq = (pld[1] | (pld[2] << 8) | (pld[3] << 16)) * FREQ_STEP;
@@ -149,7 +149,7 @@ static bool new_channel(const uint8_t *pld, int snr)
     return mac_enqueue_ans(CID_NEW_CHANNEL, &status, sizeof(status));
 }
 
-static bool rx_timing_setup(const uint8_t *pld, int snr)
+static bool rx_timing_setup(const uint8_t *pld)
 {
     uint8_t delay = pld[0] & 0xf;
 
@@ -162,12 +162,12 @@ static bool rx_timing_setup(const uint8_t *pld, int snr)
     return mac_enqueue_ans(CID_RX_TIMING_SETUP, NULL, 0);
 }
 
-static bool tx_param_setup(const uint8_t *pld, int snr)
+static bool tx_param_setup(const uint8_t *pld)
 {
     return true; // not supported, skip silently
 }
 
-static bool di_channel(const uint8_t *pld, int snr)
+static bool di_channel(const uint8_t *pld)
 {
     return true; // not supported, skip silently
 }
@@ -182,7 +182,7 @@ void mac_init()
     mac_buf_pos = 0;
 }
 
-void mac_handle_commands(const uint8_t *buf, uint8_t len, int8_t snr)
+void mac_handle_commands(const uint8_t *buf, uint8_t len)
 {
     const uint8_t *start = buf;
     const uint8_t *end = start + len;
@@ -195,7 +195,7 @@ void mac_handle_commands(const uint8_t *buf, uint8_t len, int8_t snr)
         for (int i = 0; i < mac_cmds_count; i++) {
             if (cid == mac_commands[i].cid) {
                 if ((end - start) >= mac_commands[i].pld_size) {
-                    status = mac_commands[i].handler(start, snr);
+                    status = mac_commands[i].handler(start);
                     start += mac_commands[i].pld_size;
                 }
                 break;
