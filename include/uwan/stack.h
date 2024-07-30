@@ -149,6 +149,8 @@ struct uwan_packet_params {
 
 struct uwan_mac_callbacks {
     uint8_t (*get_battery_level)(void); // optional, see ch. 5.5 of LoRaWAN spec
+    void (*link_check_result)(uint8_t margin, uint8_t gw_cnt); // optional
+    void (*device_time_result)(uint32_t sec, uint8_t fraq); // optional
 };
 
 struct radio_dev {
@@ -323,6 +325,10 @@ void uwan_adr_enable(bool enable);
 
 void uwan_adr_setup_ack(uint8_t limit, uint8_t delay);
 
-void uwan_set_mac_handlers(const struct uwan_mac_callbacks *cbs);
+void uwan_mac_set_handlers(const struct uwan_mac_callbacks *cbs);
+
+bool uwan_mac_link_check_req(void);
+
+bool uwan_mac_device_time_req(void);
 
 #endif

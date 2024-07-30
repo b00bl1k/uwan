@@ -125,7 +125,7 @@ static void handle_answ(const uint8_t *buf, uint8_t size)
         case APP_TIME_ANS:
             if (size - offset < 5)
                 break;
-            corr_value = buf[offset++]; // TODO check for negative value
+            corr_value = buf[offset++];
             corr_value |= buf[offset++] << 8;
             corr_value |= buf[offset++] << 16;
             corr_value |= buf[offset++] << 24;

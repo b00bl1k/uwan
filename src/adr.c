@@ -103,7 +103,7 @@ bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
         uw_region->handle_adr_ch_mask(ch_mask, ch_mask_cntl, false);
     }
 
-    return mac_enqueue_ans(CID_LINK_ADR, &result, sizeof(result));
+    return mac_enqueue(CID_LINK_ADR, &result, sizeof(result));
 }
 
 void adr_handle_uplink()

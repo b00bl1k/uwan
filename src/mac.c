@@ -28,14 +28,16 @@
 #include "mac.h"
 #include "stack.h"
 
+#define LINK_CHECK_ANS_PAYLOAD_SIZE 2
 #define LINK_ADR_REQ_PAYLOAD_SIZE 4
 #define DUTY_CYCLE_REQ_PAYLOAD_SIZE 1
-#define RX_PARAM_SETUP_PAYLOAD_SIZE 4
-#define DEV_STATUS_PAYLOAD_SIZE 0
-#define NEW_CHANNEL_PAYLOAD_SIZE 5
-#define RX_TIMING_SETUP_PAYLOAD_SIZE 1
-#define TX_PARAM_SETUP_PAYLOAD_SIZE 1
-#define DI_CHANNEL_PAYLOAD_SIZE 4
+#define RX_PARAM_SETUP_REQ_PAYLOAD_SIZE 4
+#define DEV_STATUS_REQ_PAYLOAD_SIZE 0
+#define NEW_CHANNEL_REQ_PAYLOAD_SIZE 5
+#define RX_TIMING_SETUP_REQ_PAYLOAD_SIZE 1
+#define TX_PARAM_SETUP_REQ_PAYLOAD_SIZE 1
+#define DI_CHANNEL_REQ_PAYLOAD_SIZE 4
+#define CID_DEVICE_TIME_ANS_PAYLOAD_SIZE 5
 
 #define FREQ_STEP 100
 #define DEV_STATUS_MARGIN_MASK 0x3f
@@ -49,6 +51,7 @@
 
 #define MAC_BUF_SIZE 15
 
+static bool link_check(const uint8_t *pld);
 static bool link_adr(const uint8_t *pld);
 static bool duty_cycle(const uint8_t *pld);
 static bool rx_param_setup(const uint8_t *pld);
@@ -57,6 +60,7 @@ static bool new_channel(const uint8_t *pld);
 static bool rx_timing_setup(const uint8_t *pld);
 static bool tx_param_setup(const uint8_t *pld);
 static bool di_channel(const uint8_t *pld);
+static bool device_time(const uint8_t *pld);
 
 static uint8_t mac_buf[MAC_BUF_SIZE];
 static uint8_t mac_buf_pos;
@@ -67,15 +71,28 @@ const struct {
     bool (*handler)(const uint8_t *pld);
     uint8_t pld_size;
 } mac_commands[] = {
+    {CID_LINK_CHECK, link_check, LINK_CHECK_ANS_PAYLOAD_SIZE},
     {CID_LINK_ADR, link_adr, LINK_ADR_REQ_PAYLOAD_SIZE},
     {CID_DUTY_CYCLE, duty_cycle, DUTY_CYCLE_REQ_PAYLOAD_SIZE},
-    {CID_RX_PARAM_SETUP, rx_param_setup, RX_PARAM_SETUP_PAYLOAD_SIZE},
-    {CID_DEV_STATUS, dev_status, DEV_STATUS_PAYLOAD_SIZE},
-    {CID_NEW_CHANNEL, new_channel, NEW_CHANNEL_PAYLOAD_SIZE},
-    {CID_RX_TIMING_SETUP, rx_timing_setup, RX_TIMING_SETUP_PAYLOAD_SIZE},
-    {CID_TX_PARAM_SETUP, tx_param_setup, TX_PARAM_SETUP_PAYLOAD_SIZE},
-    {CID_DI_CHANNEL, di_channel, DI_CHANNEL_PAYLOAD_SIZE},
+    {CID_RX_PARAM_SETUP, rx_param_setup, RX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
+    {CID_DEV_STATUS, dev_status, DEV_STATUS_REQ_PAYLOAD_SIZE},
+    {CID_NEW_CHANNEL, new_channel, NEW_CHANNEL_REQ_PAYLOAD_SIZE},
+    {CID_RX_TIMING_SETUP, rx_timing_setup, RX_TIMING_SETUP_REQ_PAYLOAD_SIZE},
+    {CID_TX_PARAM_SETUP, tx_param_setup, TX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
+    {CID_DI_CHANNEL, di_channel, DI_CHANNEL_REQ_PAYLOAD_SIZE},
+    {CID_DEVICE_TIME, device_time, CID_DEVICE_TIME_ANS_PAYLOAD_SIZE},
 };
+
+static bool link_check(const uint8_t *pld)
+{
+    if (mac_cbs && mac_cbs->link_check_result) {
+        uint8_t margin = pld[0];
+        uint8_t gw_cnt = pld[1];
+        mac_cbs->link_check_result(margin, gw_cnt);
+    }
+
+    return true;
+}
 
 static bool link_adr(const uint8_t *pld)
 {
@@ -85,7 +102,7 @@ static bool link_adr(const uint8_t *pld)
 static bool duty_cycle(const uint8_t *pld)
 {
     // TODO handle DutyCyclePL
-    return mac_enqueue_ans(CID_DUTY_CYCLE, NULL, 0);
+    return mac_enqueue(CID_DUTY_CYCLE, NULL, 0);
 }
 
 static bool rx_param_setup(const uint8_t *pld)
@@ -112,7 +129,7 @@ static bool rx_param_setup(const uint8_t *pld)
 
     // TODO command should be added in the FOpt field of all uplinks until a
     // class A downlink is received by the end-device
-    return mac_enqueue_ans(CID_RX_PARAM_SETUP, &status, sizeof(status));
+    return mac_enqueue(CID_RX_PARAM_SETUP, &status, sizeof(status));
 }
 
 static bool dev_status(const uint8_t *pld)
@@ -125,7 +142,7 @@ static bool dev_status(const uint8_t *pld)
     if (mac_cbs && mac_cbs->get_battery_level)
         status[0] = mac_cbs->get_battery_level();
 
-    return mac_enqueue_ans(CID_DEV_STATUS, status, sizeof(status));
+    return mac_enqueue(CID_DEV_STATUS, status, sizeof(status));
 }
 
 static bool new_channel(const uint8_t *pld)
@@ -146,7 +163,7 @@ static bool new_channel(const uint8_t *pld)
             status = 0;
     }
 
-    return mac_enqueue_ans(CID_NEW_CHANNEL, &status, sizeof(status));
+    return mac_enqueue(CID_NEW_CHANNEL, &status, sizeof(status));
 }
 
 static bool rx_timing_setup(const uint8_t *pld)
@@ -159,7 +176,19 @@ static bool rx_timing_setup(const uint8_t *pld)
 
     // TODO command should be added in the FOpt field of all uplinks until a
     // class A downlink is received by the end-device
-    return mac_enqueue_ans(CID_RX_TIMING_SETUP, NULL, 0);
+    return mac_enqueue(CID_RX_TIMING_SETUP, NULL, 0);
+}
+
+static bool device_time(const uint8_t *pld)
+{
+    if (mac_cbs && mac_cbs->device_time_result) {
+        uint32_t seconds;
+        seconds = pld[0] | (pld[1] << 8) | (pld[2] << 16) | (pld[3] << 24);
+        uint8_t fraq = pld[4];
+        mac_cbs->device_time_result(seconds, fraq);
+    }
+
+    return true;
 }
 
 static bool tx_param_setup(const uint8_t *pld)
@@ -172,9 +201,19 @@ static bool di_channel(const uint8_t *pld)
     return true; // not supported, skip silently
 }
 
-void uwan_set_mac_handlers(const struct uwan_mac_callbacks *cbs)
+void uwan_mac_set_handlers(const struct uwan_mac_callbacks *cbs)
 {
     mac_cbs = cbs;
+}
+
+bool uwan_mac_link_check_req()
+{
+    return mac_enqueue(CID_LINK_CHECK, NULL, 0);
+}
+
+bool uwan_mac_device_time_req()
+{
+    return mac_enqueue(CID_DEVICE_TIME, NULL, 0);
 }
 
 void mac_init()
@@ -207,7 +246,7 @@ void mac_handle_commands(const uint8_t *buf, uint8_t len)
     }
 }
 
-bool mac_enqueue_ans(uint8_t cid, const uint8_t *data, uint8_t size)
+bool mac_enqueue(uint8_t cid, const uint8_t *data, uint8_t size)
 {
     uint8_t free = sizeof(mac_buf) - mac_buf_pos;
 
