@@ -55,7 +55,7 @@ static uint8_t state_token_req;
 static struct uwan_clock_sync_callbacks *cs_callbacks;
 static uint8_t ans_buf[BUF_SIZE];
 static uint8_t ans_buf_data_size;
-static int force_resync_nb_of_rep = 1;
+static int force_resync_nb_of_rep = 1; // TODO
 static bool ans_pending;
 
 static uint32_t periodicity_from_period_id(int id)
@@ -91,13 +91,19 @@ static uint32_t periodicity_from_period_id(int id)
     return 128 * mul;
 }
 
+static uint32_t unix_to_gps(uint32_t timestamp)
+{
+    uint32_t gps_time = timestamp - UNIX_GPS_EPOCH_OFFSET;
+    gps_time += UNIX_LEAP_SECONDS;
+    return gps_time;
+}
+
 static void handle_answ(const uint8_t *buf, uint8_t size)
 {
     uint8_t offset = 0;
     uint8_t ans_buf_offset = 0;
     uint8_t exec_cmd_mask = 0;
     int32_t corr_value;
-    uint32_t cur_time;
     uint8_t periodicity;
     uint8_t token;
 
@@ -152,9 +158,7 @@ static void handle_answ(const uint8_t *buf, uint8_t size)
                 ans_buf[ans_buf_offset++] = 0x00;
             }
 
-            cur_time = cs_callbacks->get_unixtime();
-            cur_time += UNIX_LEAP_SECONDS;
-            cur_time -= UNIX_GPS_EPOCH_OFFSET;
+            uint32_t cur_time = unix_to_gps(cs_callbacks->get_unixtime());
             ans_buf[ans_buf_offset++] = cur_time;
             ans_buf[ans_buf_offset++] = cur_time >> 8;
             ans_buf[ans_buf_offset++] = cur_time >> 16;
@@ -179,6 +183,10 @@ static void handle_answ(const uint8_t *buf, uint8_t size)
 void uwan_clock_sync_init(struct uwan_clock_sync_callbacks *cbs)
 {
     cs_callbacks = cbs;
+    state_token_req = 0;
+    app_time_req_pending = false;
+    ans_pending = false;
+    ans_buf_data_size = 0;
 }
 
 void uwan_clock_sync_handle_time_answ(enum uwan_errs err,
@@ -225,9 +233,7 @@ enum uwan_errs uwan_clock_sync_send_time_req(bool ans_required)
         ans_pending = false;
     }
 
-    uint32_t cur_time = cs_callbacks->get_unixtime();
-    cur_time -= UNIX_GPS_EPOCH_OFFSET;
-
+    uint32_t cur_time = unix_to_gps(cs_callbacks->get_unixtime());
     rq_buf[offset++] = APP_TIME_REQ;
     rq_buf[offset++] = cur_time;
     rq_buf[offset++] = cur_time >> 8;

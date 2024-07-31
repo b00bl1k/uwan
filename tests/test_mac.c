@@ -1,7 +1,5 @@
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include <uwan/stack.h>
 #include "adr.h"

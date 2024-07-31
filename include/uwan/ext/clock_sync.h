@@ -30,10 +30,10 @@
 #define UWAN_EXT_CLOCK_SYNC_PORT 202
 
 struct uwan_clock_sync_callbacks {
-    void (* set_clock_correction)(int32_t value); // Required
-    void (* handle_app_time_periodicity_req)(uint32_t period_sec); // Optional
-    uint32_t (* get_unixtime)(void); // Required
-    void (* force_device_resync_req)(void); // Required
+    void (*set_clock_correction)(int32_t value); // Required
+    void (*handle_app_time_periodicity_req)(uint32_t period_sec); // Optional
+    uint32_t (*get_unixtime)(void); // Required
+    void (*force_device_resync_req)(void); // Required
 };
 
 void uwan_clock_sync_init(struct uwan_clock_sync_callbacks *cbs);

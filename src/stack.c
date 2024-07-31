@@ -392,7 +392,7 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
 
     offset += f_opts_len;
 
-    uint8_t *pld;
+    uint8_t *pld = NULL;
     uint8_t pld_size = pkt->size - (msg_min_size + f_opts_len);
     if (pld_size > 0) {
         pkt->f_port = buf[offset++];
@@ -422,7 +422,7 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
 static void handle_downlink(enum uwan_errs err)
 {
     struct uwan_dl_packet pkt = {0};
-    enum uwan_mtypes mtype;
+    enum uwan_mtypes mtype = 0;
 
     if (err == UWAN_ERR_NO) {
         pkt.data = uw_frame;

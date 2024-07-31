@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2023 Alexey Ryabov
+ * Copyright (c) 2023-2024 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -67,20 +67,20 @@ static uint8_t mac_buf_pos;
 static const struct uwan_mac_callbacks *mac_cbs;
 
 const struct {
-    uint8_t cid;
     bool (*handler)(const uint8_t *pld);
+    uint8_t cid;
     uint8_t pld_size;
 } mac_commands[] = {
-    {CID_LINK_CHECK, link_check, LINK_CHECK_ANS_PAYLOAD_SIZE},
-    {CID_LINK_ADR, link_adr, LINK_ADR_REQ_PAYLOAD_SIZE},
-    {CID_DUTY_CYCLE, duty_cycle, DUTY_CYCLE_REQ_PAYLOAD_SIZE},
-    {CID_RX_PARAM_SETUP, rx_param_setup, RX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
-    {CID_DEV_STATUS, dev_status, DEV_STATUS_REQ_PAYLOAD_SIZE},
-    {CID_NEW_CHANNEL, new_channel, NEW_CHANNEL_REQ_PAYLOAD_SIZE},
-    {CID_RX_TIMING_SETUP, rx_timing_setup, RX_TIMING_SETUP_REQ_PAYLOAD_SIZE},
-    {CID_TX_PARAM_SETUP, tx_param_setup, TX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
-    {CID_DI_CHANNEL, di_channel, DI_CHANNEL_REQ_PAYLOAD_SIZE},
-    {CID_DEVICE_TIME, device_time, CID_DEVICE_TIME_ANS_PAYLOAD_SIZE},
+    {link_check, CID_LINK_CHECK, LINK_CHECK_ANS_PAYLOAD_SIZE},
+    {link_adr, CID_LINK_ADR, LINK_ADR_REQ_PAYLOAD_SIZE},
+    {duty_cycle, CID_DUTY_CYCLE, DUTY_CYCLE_REQ_PAYLOAD_SIZE},
+    {rx_param_setup, CID_RX_PARAM_SETUP, RX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
+    {dev_status, CID_DEV_STATUS, DEV_STATUS_REQ_PAYLOAD_SIZE},
+    {new_channel, CID_NEW_CHANNEL, NEW_CHANNEL_REQ_PAYLOAD_SIZE},
+    {rx_timing_setup, CID_RX_TIMING_SETUP, RX_TIMING_SETUP_REQ_PAYLOAD_SIZE},
+    {tx_param_setup, CID_TX_PARAM_SETUP, TX_PARAM_SETUP_REQ_PAYLOAD_SIZE},
+    {di_channel, CID_DI_CHANNEL, DI_CHANNEL_REQ_PAYLOAD_SIZE},
+    {device_time, CID_DEVICE_TIME, CID_DEVICE_TIME_ANS_PAYLOAD_SIZE},
 };
 
 static bool link_check(const uint8_t *pld)
