@@ -27,6 +27,7 @@
 #include "adr.h"
 #include "mac.h"
 #include "stack.h"
+#include "utils.h"
 
 #define LINK_CHECK_ANS_PAYLOAD_SIZE 2
 #define LINK_ADR_REQ_PAYLOAD_SIZE 4
@@ -182,10 +183,11 @@ static bool rx_timing_setup(const uint8_t *pld)
 static bool device_time(const uint8_t *pld)
 {
     if (mac_cbs && mac_cbs->device_time_result) {
-        uint32_t seconds;
-        seconds = pld[0] | (pld[1] << 8) | (pld[2] << 16) | (pld[3] << 24);
+        uint32_t gps_seconds;
+        gps_seconds = pld[0] | (pld[1] << 8) | (pld[2] << 16) | (pld[3] << 24);
+        uint32_t unixtime = utils_gps_to_unix(gps_seconds);
         uint8_t fraq = pld[4];
-        mac_cbs->device_time_result(seconds, fraq);
+        mac_cbs->device_time_result(unixtime, fraq);
     }
 
     return true;

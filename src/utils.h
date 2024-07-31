@@ -43,5 +43,7 @@
 void utils_random_init(uint32_t seed);
 uint32_t utils_get_random(uint32_t max);
 uint8_t utils_checksum(const void *src, size_t size);
+uint32_t utils_unix_to_gps(uint32_t timestamp);
+uint32_t utils_gps_to_unix(uint32_t timestamp);
 
 #endif

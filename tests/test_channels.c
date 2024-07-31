@@ -21,6 +21,11 @@ uint8_t utils_checksum(const void *src, size_t size)
     return 0xff;
 }
 
+uint32_t utils_gps_to_unix(uint32_t timestamp)
+{
+    return timestamp;
+}
+
 int main()
 {
     uint32_t ch;

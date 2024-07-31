@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include "utils.h"
 
+#define UNIX_GPS_EPOCH_OFFSET 315964800
+#define UNIX_LEAP_SECONDS 18
+
 void utils_random_init(uint32_t seed)
 {
     srand(seed);
@@ -42,4 +45,18 @@ uint8_t utils_checksum(const void *src, size_t size)
     for (; size > 0; size--)
         cs += *buf++;
     return cs;
+}
+
+uint32_t utils_unix_to_gps(uint32_t timestamp)
+{
+    uint32_t gps_time = timestamp - UNIX_GPS_EPOCH_OFFSET;
+    gps_time += UNIX_LEAP_SECONDS;
+    return gps_time;
+}
+
+uint32_t utils_gps_to_unix(uint32_t timestamp)
+{
+    uint32_t unix_time = timestamp + UNIX_GPS_EPOCH_OFFSET;
+    unix_time -= UNIX_LEAP_SECONDS;
+    return unix_time;
 }

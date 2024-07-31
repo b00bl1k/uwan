@@ -19,11 +19,6 @@ uint8_t mac_buf_pld_len;
 uint8_t tx_power;
 uint8_t nb_trans;
 
-uint32_t utils_get_random(uint32_t max)
-{
-    return 0;
-}
-
 bool is_valid_dr(uint8_t dr)
 {
     return true;

@@ -13,7 +13,7 @@ enum uwan_dr rx2_dr;
 
 uint8_t test_link_check_margin;
 uint8_t test_link_check_gw_cnt;
-uint32_t test_device_time_sec;
+uint32_t test_device_time_unixtime;
 uint8_t test_device_time_fraq;
 
 bool adr_handle_link_req(uint8_t dr_txpow,uint16_t ch_mask, uint8_t redundancy)
@@ -66,9 +66,9 @@ static void link_check_result(uint8_t margin, uint8_t gw_cnt)
     test_link_check_gw_cnt = gw_cnt;
 }
 
-static void device_time_result(uint32_t sec, uint8_t fraq)
+static void device_time_result(uint32_t unixtime, uint8_t fraq)
 {
-    test_device_time_sec = sec;
+    test_device_time_unixtime = unixtime;
     test_device_time_fraq = fraq;
 }
 
@@ -96,7 +96,7 @@ int main()
         CID_RX_TIMING_SETUP, 0x00,
         CID_TX_PARAM_SETUP, 0x00,
         CID_DI_CHANNEL, 0x00, 0x40, 0x72, 0x84,
-        CID_DEVICE_TIME, 0x04, 0x03, 0x02, 0x01, 0xaa,
+        CID_DEVICE_TIME, 0xf8, 0xca, 0xd4, 0x53, 0xaa,
     };
     mac_handle_commands(mac_down_pld, sizeof(mac_down_pld));
 
@@ -107,7 +107,7 @@ int main()
 
     assert(test_link_check_margin == 0x0a);
     assert(test_link_check_gw_cnt == 0x01);
-    assert(test_device_time_sec == 0x01020304);
+    assert(test_device_time_unixtime == 1722419302);
     assert(test_device_time_fraq == 0xaa);
 
     assert(uwan_mac_link_check_req());

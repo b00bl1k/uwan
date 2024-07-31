@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include <uwan/ext/clock_sync.h>
+#include "../utils.h"
 
 #define PACKAGE_ID 1
 #define PACKAGE_VERSION 1
@@ -42,8 +43,6 @@
 
 #define BUF_SIZE 32
 #define APP_TIME_RQ_LEN 6
-#define UNIX_GPS_EPOCH_OFFSET 315964800
-#define UNIX_LEAP_SECONDS 18
 
 /* Saved settings */
 static bool adr_enabled_prev;
@@ -89,13 +88,6 @@ static uint32_t periodicity_from_period_id(int id)
     }
 
     return 128 * mul;
-}
-
-static uint32_t unix_to_gps(uint32_t timestamp)
-{
-    uint32_t gps_time = timestamp - UNIX_GPS_EPOCH_OFFSET;
-    gps_time += UNIX_LEAP_SECONDS;
-    return gps_time;
 }
 
 static void handle_answ(const uint8_t *buf, uint8_t size)
@@ -158,7 +150,7 @@ static void handle_answ(const uint8_t *buf, uint8_t size)
                 ans_buf[ans_buf_offset++] = 0x00;
             }
 
-            uint32_t cur_time = unix_to_gps(cs_callbacks->get_unixtime());
+            uint32_t cur_time = utils_unix_to_gps(cs_callbacks->get_unixtime());
             ans_buf[ans_buf_offset++] = cur_time;
             ans_buf[ans_buf_offset++] = cur_time >> 8;
             ans_buf[ans_buf_offset++] = cur_time >> 16;
@@ -233,7 +225,7 @@ enum uwan_errs uwan_clock_sync_send_time_req(bool ans_required)
         ans_pending = false;
     }
 
-    uint32_t cur_time = unix_to_gps(cs_callbacks->get_unixtime());
+    uint32_t cur_time = utils_unix_to_gps(cs_callbacks->get_unixtime());
     rq_buf[offset++] = APP_TIME_REQ;
     rq_buf[offset++] = cur_time;
     rq_buf[offset++] = cur_time >> 8;

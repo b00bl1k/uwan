@@ -133,6 +133,11 @@ uint8_t utils_checksum(const void *src, size_t size)
     return cs;
 }
 
+uint32_t utils_gps_to_unix(uint32_t timestamp)
+{
+    return timestamp;
+}
+
 static uint8_t radio_irq_handler(void)
 {
     if (app_evt_handler)

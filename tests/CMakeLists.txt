@@ -16,6 +16,7 @@ add_executable(test_adr
     ${SRC_DIR}/region/ru864.c
     ${SRC_DIR}/adr.c
     ${SRC_DIR}/channels.c
+    ${SRC_DIR}/utils.c
 )
 target_include_directories(test_adr PRIVATE
     ${SRC_DIR}
@@ -43,6 +44,7 @@ add_test(NAME test_channels COMMAND test_channels)
 add_executable(test_ext_clock_sync
     test_ext_clock_sync.c
     ${SRC_DIR}/ext/clock_sync.c
+    ${SRC_DIR}/utils.c
 )
 target_include_directories(test_ext_clock_sync PRIVATE
     ${SRC_DIR}
