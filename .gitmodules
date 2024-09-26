@@ -1,3 +1,0 @@
-[submodule "vendor/tinycrypt"]
-	path = vendor/tinycrypt
-	url = https://github.com/intel/tinycrypt.git

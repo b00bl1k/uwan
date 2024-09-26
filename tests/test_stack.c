@@ -48,6 +48,11 @@ static int8_t app_rssi;
 static int app_downlink_callback_call_count;
 static void (*app_evt_handler)(uint8_t evt_mask);
 
+static struct crypto_context {
+    bool in_use;
+    uint8_t key[UWAN_AES_BLOCK_SIZE];
+} aes_context, cmac_context;
+
 static const uint8_t dev_eui[] = {
     0x00, 0x01, 0x02, 0x03,
     0x04, 0x05, 0x06, 0x07,
@@ -77,6 +82,7 @@ static void radio_set_frequency(uint32_t frequency)
 bool radio_set_power(int8_t power)
 {
     radio_power = power;
+    return true;
 }
 
 static void radio_sleep(void)
@@ -184,10 +190,71 @@ void app_downlink_callback(enum uwan_errs err, enum uwan_mtypes m_type,
     app_snr = pkt->snr;
 }
 
+void *app_crypto_aes_create_context(const uint8_t key[UWAN_AES_BLOCK_SIZE])
+{
+    memcpy(aes_context.key, key, UWAN_AES_BLOCK_SIZE);
+    assert(aes_context.in_use == false);
+    aes_context.in_use = true;
+    return &aes_context;
+}
+
+void app_crypto_aes_encrypt(void *ctx, void *dst, const void *src)
+{
+    assert(ctx == &aes_context);
+    struct crypto_context *context = ctx;
+    for (int i = 0; i < UWAN_AES_BLOCK_SIZE; i++)
+        ((uint8_t *)dst)[i] = ((const uint8_t *)src)[i] ^ context->key[i];
+}
+
+
+void app_crypto_aes_delete_context(void *ctx)
+{
+    assert(ctx == &aes_context);
+    struct crypto_context *context = ctx;
+    assert(context->in_use == true);
+    context->in_use = false;
+}
+
+void *app_crypto_cmac_create_context(const uint8_t key[UWAN_AES_BLOCK_SIZE])
+{
+    memcpy(cmac_context.key, key, UWAN_AES_BLOCK_SIZE);
+    assert(cmac_context.in_use == false);
+    cmac_context.in_use = true;
+    return &cmac_context;
+}
+
+void app_crypto_cmac_update(void *ctx, const void *src, size_t len)
+{
+    assert(ctx == &cmac_context);
+    struct crypto_context *context = ctx;
+}
+
+void app_crypto_cmac_finish(void *ctx, uint8_t digest[UWAN_CMAC_DIGESTLEN])
+{
+    assert(ctx == &cmac_context);
+    struct crypto_context *context = ctx;
+    memcpy(digest, context->key, UWAN_CMAC_DIGESTLEN);
+}
+
+void app_crypto_cmac_delete_context(void *ctx)
+{
+    assert(ctx == &cmac_context);
+    struct crypto_context *context = ctx;
+    assert(context->in_use == true);
+    context->in_use = false;
+}
+
 static const struct stack_hal app_hal = {
     .start_timer = app_start_timer,
     .stop_timer = app_stop_timer,
     .downlink_callback = app_downlink_callback,
+    .crypto_aes_create_context = app_crypto_aes_create_context,
+    .crypto_aes_encrypt = app_crypto_aes_encrypt,
+    .crypto_aes_delete_context = app_crypto_aes_delete_context,
+    .crypto_cmac_create_context = app_crypto_cmac_create_context,
+    .crypto_cmac_update = app_crypto_cmac_update,
+    .crypto_cmac_finish = app_crypto_cmac_finish,
+    .crypto_cmac_delete_context = app_crypto_cmac_delete_context,
 };
 
 void test_join_successfull()
@@ -198,7 +265,7 @@ void test_join_successfull()
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, // AppEUI
         0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, // DevEUI
         0x67, 0x45, // DevNonce
-        0x25, 0xe6, 0x57, 0xa3, // MIC
+        0x04, 0x05, 0x06, 0x07, // MIC
     };
     const uint8_t join_accept[] = {
         0x20, // MHDR
@@ -207,10 +274,10 @@ void test_join_successfull()
         // 0x00, 0x01, 0x02, 0x03, // DevAddr
         // 0x00, // DLSettings
         // 0x01, // RxDelay
-        0xe8, 0x14, 0x30, 0x62,
-        0x0d, 0x86, 0xc0, 0xda,
-        0xd7, 0x5a, 0xf4, 0x7a,
-        0x61, 0xf0, 0xef, 0x0b,
+        0x05, 0x07, 0x05, 0xad,
+        0xbf, 0xc9, 0x06, 0x06,
+        0x06, 0x06, 0x06, 0x06,
+        0x00, 0x00, 0x00, 0x00,
     };
 
     uwan_set_otaa_keys(dev_eui, app_eui, app_key);
@@ -271,8 +338,8 @@ void test_send_uplink_successfull()
         0x00, 0x01, 0x02, 0x03, // DevAddr
         0x00, 0x00, 0x00, // FHDR
         f_port,
-        0xce, 0x88, 0x53, 0x59, // Payload
-        0x61, 0xfa, 0xf3, 0xd8, // MIC
+        0x07, 0x05, 0x06, 0x07, // Payload
+        0x05, 0x04, 0x04, 0x04, // MIC
     };
 
     assert(memcmp(uplink, radio_frame, radio_frame_size) == 0);

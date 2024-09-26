@@ -7,13 +7,6 @@ set(CMAKE_C_STANDARD 99)
 set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-set(TINYCRYPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/tinycrypt)
-set(TINYCRYPT_INC ${TINYCRYPT_DIR}/lib/include)
-set(TINYCRYPT_SRC
-    ${TINYCRYPT_DIR}/lib/source/aes_encrypt.c
-    ${TINYCRYPT_DIR}/lib/source/cmac_mode.c
-    ${TINYCRYPT_DIR}/lib/source/utils.c)
-
 set(LIB_SRC
     ${SRC_DIR}/device/sx127x.c
     ${SRC_DIR}/device/sx126x.c
@@ -27,11 +20,10 @@ set(LIB_SRC
     ${SRC_DIR}/stack.c
     ${SRC_DIR}/utils.c)
 
-add_library(uwan STATIC ${LIB_SRC} ${TINYCRYPT_SRC})
+add_library(uwan STATIC ${LIB_SRC})
 target_include_directories(uwan
     PRIVATE
         ${SRC_DIR}
-        ${TINYCRYPT_INC}
     PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${INC_DIR}>
