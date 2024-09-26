@@ -67,7 +67,7 @@ int main()
     assert(uwan_clock_sync_send_time_req(true) == UWAN_ERR_NO);
 
     uint8_t up_pld[] = {CID_APP_TIME, 0xf8, 0xca, 0xd4, 0x53, 0x10};
-    assert(frame_size = sizeof(up_pld));
+    assert(frame_size == sizeof(up_pld));
     assert(memcmp(frame, up_pld, sizeof(up_pld)) == 0);
 
     uint8_t down_pld[] = {
@@ -94,7 +94,7 @@ int main()
         CID_PACKAGE_VERSION, 0x01, 0x01,
         CID_TIME_PERIODICITY, 0x00, 0xf8, 0xca, 0xd4, 0x53,
     };
-    assert(frame_size = sizeof(up_pld2));
+    assert(frame_size == sizeof(up_pld2));
     assert(memcmp(frame, up_pld2, sizeof(up_pld2)) == 0);
 
     assert(time_periodicity == 256);

@@ -38,6 +38,9 @@
 #define UWAN_RX_NO_TIMEOUT 0
 #define UWAN_RX_INFINITE 0xffffff
 
+#define UWAN_AES_BLOCK_SIZE 16
+#define UWAN_CMAC_DIGESTLEN 16
+
 #define LORAWAN_PUBLIC_SYNC_WORD_MSB 0x34
 #define LORAWAN_PUBLIC_SYNC_WORD_LSB 0x44
 #define LORAWAN_PRIVATE_SYNC_WORD_MSB 0x14
@@ -173,6 +176,11 @@ struct stack_hal {
     void (*stop_timer)(enum uwan_timer_ids timer_id);
     void (*downlink_callback)(enum uwan_errs err, enum uwan_mtypes m_type,
         const struct uwan_dl_packet *pkt);
+    void *(*crypto_aes_create_context)(const uint8_t key[UWAN_AES_BLOCK_SIZE]);
+    void (*crypto_aes_encrypt)(void *ctx, void *dst, const void *src);
+    void *(*crypto_cmac_create_context)(const uint8_t key[UWAN_AES_BLOCK_SIZE]);
+    void (*crypto_cmac_update)(void *ctx, const void *src, size_t len);
+    void (*crypto_cmac_finish)(void *ctx, uint8_t digest[UWAN_CMAC_DIGESTLEN]);
 };
 
 struct uwan_region {
@@ -185,9 +193,9 @@ struct uwan_region {
 /**
  * \brief Initialize stack
  *
- * \param pointer to radio device (sx127x_dev or sx126x_dev)
- * \param pointer to hal for stack
- * \param pointer to region struct (region_eu868 for example)
+ * \param radio pointer to radio device (sx127x_dev or sx126x_dev)
+ * \param stack pointer to hal for stack
+ * \param region pointer to region struct (region_eu868 for example)
  */
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
     const struct uwan_region *region);
@@ -222,6 +230,8 @@ bool uwan_restore_session(const void *src, size_t src_size);
 
 /**
  * \brief Check for stack is joined
+ *
+ * \returns true if activation is OTAA and stack is joined
  */
 bool uwan_is_joined(void);
 
@@ -252,7 +262,9 @@ enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 /**
  * \brief Send join-request message
  *
- * Network paramaters should be set by \sa uwan_set_otaa_keys
+ * Network parameters must be set by uwan_set_otaa_keys
+ *
+ * \returns UWAN_ERR_NO if the join-request has been sent
  */
 enum uwan_errs uwan_join(void);
 
@@ -319,16 +331,47 @@ bool uwan_set_rx1_dr_offset(uint8_t rx1_dr_offset);
  */
 bool uwan_set_rx1_delay(uint8_t delay);
 
+/**
+ * \brief Check for ADR is enabled
+ */
 bool uwan_adr_is_enabled(void);
 
+/**
+ * \brief Enable ADR
+ *
+ * \param enable pass true to enable
+ */
 void uwan_adr_enable(bool enable);
 
+/**
+ * \brief Setup ADR ACK limit and delay
+ *
+ * See adr.c for details
+ *
+ * \param limit set ADRACKReq bit after limit uplinks, 64 by default
+ * \param delay reduce DR if possible after limit+delay uplinks, 32 by default
+ */
 void uwan_adr_setup_ack(uint8_t limit, uint8_t delay);
 
+/**
+ * \brief Set callback for properly handling MAC commands
+ *
+ * \param cbs pointer to struct with callbacks
+ */
 void uwan_mac_set_handlers(const struct uwan_mac_callbacks *cbs);
 
+/**
+ * \brief Queue LinkCheckReq command
+ *
+ * \returns false if there is no available space in MAC buffer
+ */
 bool uwan_mac_link_check_req(void);
 
+/**
+ * \brief Queue DeviceTimeReq command
+ *
+ * \returns false if there is no available space in MAC buffer
+ */
 bool uwan_mac_device_time_req(void);
 
 #endif
