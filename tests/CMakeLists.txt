@@ -32,12 +32,10 @@ add_executable(test_channels
     ${SRC_DIR}/channels.c
     ${SRC_DIR}/mac.c
     ${SRC_DIR}/stack.c
-    ${TINYCRYPT_SRC}
 )
 target_include_directories(test_channels PRIVATE
     ${SRC_DIR}
     ${INC_DIR}
-    ${TINYCRYPT_INC}
 )
 add_test(NAME test_channels COMMAND test_channels)
 
@@ -72,11 +70,9 @@ add_executable(test_stack
     ${SRC_DIR}/channels.c
     ${SRC_DIR}/mac.c
     ${SRC_DIR}/stack.c
-    ${TINYCRYPT_SRC}
 )
 target_include_directories(test_stack PRIVATE
     ${SRC_DIR}
     ${INC_DIR}
-    ${TINYCRYPT_INC}
 )
 add_test(NAME test_stack COMMAND test_stack)
