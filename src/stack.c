@@ -145,8 +145,6 @@ static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
     uint8_t src_pos = 0;
     uint32_t f_cnt = (dir) ? uw_session.f_cnt_down : uw_session.f_cnt_up;
 
-    void *ctx = uw_stack_hal->crypto_aes_create_context(key);
-
     // prepare Block Ai
     uint8_t pos = 0;
     a_block[pos++] = 0x01;
@@ -165,6 +163,8 @@ static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
     a_block[pos++] = (f_cnt >> 24) & 0xff;
     a_block[pos++] = 0x00;
 
+    void *ctx = uw_stack_hal->crypto_aes_create_context(key);
+
     for (; size > 0; a_block_i++) {
         a_block[pos] = a_block_i;
 
@@ -176,6 +176,8 @@ static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
         }
         size -= chunk_size;
     }
+
+    uw_stack_hal->crypto_aes_delete_context(ctx);
 }
 
 static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
@@ -212,6 +214,7 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
 
     uw_stack_hal->crypto_cmac_update(ctx, msg, msg_len);
     uw_stack_hal->crypto_cmac_finish(ctx, cmac_mic);
+    uw_stack_hal->crypto_cmac_delete_context(ctx);
 
     memcpy(mic, cmac_mic, MIC_LEN);
 }
@@ -234,6 +237,7 @@ static void derive_session_key(uint8_t *key, uint8_t key_type,
 
     void *ctx = uw_stack_hal->crypto_aes_create_context(uw_app_key);
     uw_stack_hal->crypto_aes_encrypt(ctx, key, key);
+    uw_stack_hal->crypto_aes_delete_context(ctx);
 }
 
 static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
@@ -243,8 +247,6 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
     uint8_t mic[MIC_LEN];
     uint8_t offset = 0;
     bool cflist;
-
-    void *ctx = uw_stack_hal->crypto_aes_create_context(uw_app_key);
 
     if (pkt->size == (UWAN_AES_BLOCK_SIZE + 1))
         cflist = false;
@@ -258,13 +260,14 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
                  (MAJOR_LORAWAN_R1 << MAJOR_OFFSET)))
         return UWAN_ERR_MSG_MHDR;
 
+    void *ctx = uw_stack_hal->crypto_aes_create_context(uw_app_key);
     uw_stack_hal->crypto_aes_encrypt(ctx, buf + sizeof(mhdr), buf + sizeof(mhdr));
-
     if (cflist) {
         uw_stack_hal->crypto_aes_encrypt(ctx,
             buf + sizeof(mhdr) + UWAN_AES_BLOCK_SIZE,
             buf + sizeof(mhdr) + UWAN_AES_BLOCK_SIZE);
     }
+    uw_stack_hal->crypto_aes_delete_context(ctx);
 
     calc_mic(mic, buf, pkt->size - sizeof(mic), uw_app_key, 0, false);
     if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))

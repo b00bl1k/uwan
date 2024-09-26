@@ -49,6 +49,7 @@ static int app_downlink_callback_call_count;
 static void (*app_evt_handler)(uint8_t evt_mask);
 
 static struct crypto_context {
+    bool in_use;
     uint8_t key[UWAN_AES_BLOCK_SIZE];
 } aes_context, cmac_context;
 
@@ -192,6 +193,8 @@ void app_downlink_callback(enum uwan_errs err, enum uwan_mtypes m_type,
 void *app_crypto_aes_create_context(const uint8_t key[UWAN_AES_BLOCK_SIZE])
 {
     memcpy(aes_context.key, key, UWAN_AES_BLOCK_SIZE);
+    assert(aes_context.in_use == false);
+    aes_context.in_use = true;
     return &aes_context;
 }
 
@@ -203,9 +206,20 @@ void app_crypto_aes_encrypt(void *ctx, void *dst, const void *src)
         ((uint8_t *)dst)[i] = ((const uint8_t *)src)[i] ^ context->key[i];
 }
 
+
+void app_crypto_aes_delete_context(void *ctx)
+{
+    assert(ctx == &aes_context);
+    struct crypto_context *context = ctx;
+    assert(context->in_use == true);
+    context->in_use = false;
+}
+
 void *app_crypto_cmac_create_context(const uint8_t key[UWAN_AES_BLOCK_SIZE])
 {
     memcpy(cmac_context.key, key, UWAN_AES_BLOCK_SIZE);
+    assert(cmac_context.in_use == false);
+    cmac_context.in_use = true;
     return &cmac_context;
 }
 
@@ -222,15 +236,25 @@ void app_crypto_cmac_finish(void *ctx, uint8_t digest[UWAN_CMAC_DIGESTLEN])
     memcpy(digest, context->key, UWAN_CMAC_DIGESTLEN);
 }
 
+void app_crypto_cmac_delete_context(void *ctx)
+{
+    assert(ctx == &cmac_context);
+    struct crypto_context *context = ctx;
+    assert(context->in_use == true);
+    context->in_use = false;
+}
+
 static const struct stack_hal app_hal = {
     .start_timer = app_start_timer,
     .stop_timer = app_stop_timer,
     .downlink_callback = app_downlink_callback,
     .crypto_aes_create_context = app_crypto_aes_create_context,
     .crypto_aes_encrypt = app_crypto_aes_encrypt,
+    .crypto_aes_delete_context = app_crypto_aes_delete_context,
     .crypto_cmac_create_context = app_crypto_cmac_create_context,
     .crypto_cmac_update = app_crypto_cmac_update,
     .crypto_cmac_finish = app_crypto_cmac_finish,
+    .crypto_cmac_delete_context = app_crypto_cmac_delete_context,
 };
 
 void test_join_successfull()

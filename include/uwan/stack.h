@@ -178,9 +178,11 @@ struct stack_hal {
         const struct uwan_dl_packet *pkt);
     void *(*crypto_aes_create_context)(const uint8_t key[UWAN_AES_BLOCK_SIZE]);
     void (*crypto_aes_encrypt)(void *ctx, void *dst, const void *src);
+    void (*crypto_aes_delete_context)(void *ctx);
     void *(*crypto_cmac_create_context)(const uint8_t key[UWAN_AES_BLOCK_SIZE]);
     void (*crypto_cmac_update)(void *ctx, const void *src, size_t len);
     void (*crypto_cmac_finish)(void *ctx, uint8_t digest[UWAN_CMAC_DIGESTLEN]);
+    void (*crypto_cmac_delete_context)(void *ctx);
 };
 
 struct uwan_region {
