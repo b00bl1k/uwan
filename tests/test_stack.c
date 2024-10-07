@@ -130,15 +130,6 @@ uint32_t utils_get_random(uint32_t max)
     return 0x01234567 % max;
 }
 
-uint8_t utils_checksum(const void *src, size_t size)
-{
-    uint8_t cs = 0xff;
-    const uint8_t *buf = src;
-    for (; size > 0; size--)
-        cs += *buf++;
-    return cs;
-}
-
 uint32_t utils_gps_to_unix(uint32_t timestamp)
 {
     return timestamp;
@@ -345,20 +336,6 @@ void test_send_uplink_successfull()
     assert(memcmp(uplink, radio_frame, radio_frame_size) == 0);
 }
 
-void test_save_restore_session()
-{
-    uint8_t test_buf[128];
-
-    assert(uwan_get_session_size() == 53);
-    assert(uwan_save_session(test_buf, 4) == false);
-    assert(uwan_save_session(test_buf, sizeof(test_buf)));
-
-    assert(uwan_restore_session(test_buf, sizeof(test_buf)));
-    test_buf[5] = 0xaa;
-    test_buf[6] = 0xbb;
-    assert(uwan_restore_session(test_buf, sizeof(test_buf)) == false);
-}
-
 int main()
 {
     uwan_init(&radio, &app_hal, &region_eu868);
@@ -368,7 +345,6 @@ int main()
     test_join_successfull();
     test_send_uplink_fail();
     test_send_uplink_successfull();
-    test_save_restore_session();
 
     assert(RSSI == app_rssi);
     assert(SNR == app_snr);

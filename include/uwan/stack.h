@@ -224,12 +224,6 @@ void uwan_set_otaa_keys(const uint8_t *dev_eui, const uint8_t *app_eui,
 void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     const uint8_t *nwk_s_key, const uint8_t *app_s_key);
 
-size_t uwan_get_session_size(void);
-
-size_t uwan_save_session(void *dst, size_t dst_max_size);
-
-bool uwan_restore_session(const void *src, size_t src_size);
-
 /**
  * \brief Check for stack is joined
  *

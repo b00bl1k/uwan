@@ -553,50 +553,6 @@ void uwan_set_session(uint32_t dev_addr, uint32_t f_cnt_up, uint32_t f_cnt_down,
     uw_session.is_joined = true;
 }
 
-size_t uwan_get_session_size()
-{
-    return sizeof(struct node_session) + sizeof(uint8_t); // checksum size
-}
-
-size_t uwan_save_session(void *dst, size_t dst_max_size)
-{
-    size_t session_size = uwan_get_session_size();
-    if (dst_max_size < session_size)
-        return 0;
-
-    uw_session.version = NODE_SESSION_VERSION;
-    uw_session.size = session_size;
-    memcpy(dst, &uw_session, sizeof(uw_session));
-
-    uint8_t cs = utils_checksum(dst, sizeof(uw_session));
-    uint8_t *buf = (uint8_t *)dst + sizeof(uw_session);
-    *buf = cs;
-
-    return session_size;
-}
-
-bool uwan_restore_session(const void *src, size_t src_size)
-{
-    if (src_size < 3)
-        return false;
-
-    const uint8_t *buf = src;
-
-    const struct node_session *session = src;
-    size_t session_size = uwan_get_session_size();
-    if ((src_size < session->size)
-            || (session->version != NODE_SESSION_VERSION)
-            || (session->size != session_size))
-        return false;
-
-    uint8_t cs = utils_checksum(src, session->size - 1);
-    if (*(buf + session->size - 1) != cs)
-        return false;
-
-    memcpy(&uw_session, src, session->size - 1);
-    return true;
-}
-
 bool uwan_is_joined()
 {
     return uw_session.is_joined;

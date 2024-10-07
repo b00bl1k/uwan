@@ -31,14 +31,10 @@
 #define NB_TRANS_MAX 15
 #define TX_POWER_MAX 15
 
-#define NODE_SESSION_VERSION 1
-
 struct node_session {
-    uint8_t version;
-    uint16_t size;
-    uint8_t is_joined;
-    uint8_t ack_required;
-    uint8_t dr;
+    bool is_joined;
+    bool ack_required;
+    enum uwan_dr dr;
     uint32_t dev_addr;
     uint32_t f_cnt_up;
     uint32_t f_cnt_down;
