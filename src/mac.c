@@ -125,7 +125,7 @@ static bool rx_param_setup(const uint8_t *pld)
 
     if (status == RX_PARAM_STATUS_OK) {
         uwan_set_rx1_dr_offset(rx1_dr_offset);
-        uwan_set_rx2(rx2_freq, rx2_dr);
+        uwan_set_rx2(rx2_freq, (enum uwan_dr)rx2_dr);
     }
 
     // TODO command should be added in the FOpt field of all uplinks until a

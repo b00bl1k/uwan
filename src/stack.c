@@ -295,7 +295,7 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
     if (is_valid_dr(rx1_dr_offset))
         uw_rx1_offset = rx1_dr_offset;
     if (is_valid_dr(rx2_dr))
-        uw_rx2_dr = rx2_dr;
+        uw_rx2_dr = (enum uwan_dr)rx2_dr;
 
     // TODO duplicated code, see mac.c rx_timing_setup function
     uint8_t rx1_delay = buf[offset++] & 0xf;
@@ -417,7 +417,7 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
 static void handle_downlink(enum uwan_errs err)
 {
     struct uwan_dl_packet pkt = {0};
-    enum uwan_mtypes mtype = 0;
+    enum uwan_mtypes mtype = UWAN_MTYPE_JOIN_REQUEST;
 
     if (err == UWAN_ERR_NO) {
         pkt.data = uw_frame;

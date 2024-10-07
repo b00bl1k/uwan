@@ -38,15 +38,6 @@ uint32_t utils_get_random(uint32_t max)
     return rand() % max;
 }
 
-uint8_t utils_checksum(const void *src, size_t size)
-{
-    uint8_t cs = 0xff;
-    const uint8_t *buf = src;
-    for (; size > 0; size--)
-        cs += *buf++;
-    return cs;
-}
-
 uint32_t utils_unix_to_gps(uint32_t timestamp)
 {
     uint32_t gps_time = timestamp - UNIX_GPS_EPOCH_OFFSET;
