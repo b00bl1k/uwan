@@ -65,6 +65,8 @@ static bool device_time(const uint8_t *pld);
 
 static uint8_t mac_buf[MAC_BUF_SIZE];
 static uint8_t mac_buf_pos;
+static bool mac_save_dev_time;
+static uint32_t mac_dev_time;
 static const struct uwan_mac_callbacks *mac_cbs;
 
 const struct {
@@ -187,7 +189,7 @@ static bool device_time(const uint8_t *pld)
         gps_seconds = pld[0] | (pld[1] << 8) | (pld[2] << 16) | (pld[3] << 24);
         uint32_t unixtime = utils_gps_to_unix(gps_seconds);
         uint8_t fraq = pld[4];
-        mac_cbs->device_time_result(unixtime, fraq);
+        mac_cbs->device_time_result(mac_dev_time, unixtime, fraq);
     }
 
     return true;
@@ -215,12 +217,15 @@ bool uwan_mac_link_check_req()
 
 bool uwan_mac_device_time_req()
 {
-    return mac_enqueue(CID_DEVICE_TIME, NULL, 0);
+    bool result = mac_enqueue(CID_DEVICE_TIME, NULL, 0);
+    mac_save_dev_time = result;
+    return result;
 }
 
 void mac_init()
 {
     mac_buf_pos = 0;
+    mac_save_dev_time = false;
 }
 
 void mac_handle_commands(const uint8_t *buf, uint8_t len)
@@ -262,6 +267,15 @@ bool mac_enqueue(uint8_t cid, const uint8_t *data, uint8_t size)
     }
 
     return true;
+}
+
+void mac_on_tx_complete()
+{
+    if (mac_save_dev_time) {
+        mac_save_dev_time = false;
+        if (mac_cbs->get_device_time)
+            mac_dev_time = mac_cbs->get_device_time();
+    }
 }
 
 uint8_t mac_get_payload_size()

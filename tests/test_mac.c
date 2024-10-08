@@ -66,7 +66,12 @@ static void link_check_result(uint8_t margin, uint8_t gw_cnt)
     test_link_check_gw_cnt = gw_cnt;
 }
 
-static void device_time_result(uint32_t unixtime, uint8_t fraq)
+static uint32_t get_device_time(void)
+{
+    return 0;
+}
+
+static void device_time_result(uint32_t dev_time, uint32_t unixtime, uint8_t fraq)
 {
     test_device_time_unixtime = unixtime;
     test_device_time_fraq = fraq;
@@ -80,6 +85,7 @@ int main()
     struct uwan_mac_callbacks cbs = {
         .get_battery_level = get_battery_level,
         .link_check_result = link_check_result,
+        .get_device_time = get_device_time,
         .device_time_result = device_time_result,
     };
 

@@ -45,6 +45,8 @@ void mac_handle_commands(const uint8_t *buf, uint8_t len);
 
 bool mac_enqueue(uint8_t cid, const uint8_t *data, uint8_t size);
 
+void mac_on_tx_complete(void);
+
 uint8_t mac_get_payload_size(void);
 
 uint8_t mac_get_payload(uint8_t *buf, uint8_t buf_size);

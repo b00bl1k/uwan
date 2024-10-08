@@ -153,7 +153,8 @@ struct uwan_packet_params {
 struct uwan_mac_callbacks {
     uint8_t (*get_battery_level)(void); // optional, see ch. 5.5 of LoRaWAN spec
     void (*link_check_result)(uint8_t margin, uint8_t gw_cnt); // optional
-    void (*device_time_result)(uint32_t unixtime, uint8_t fraq); // optional
+    uint32_t (*get_device_time)(void); // optional, user should provide the func returns current unixtime
+    void (*device_time_result)(uint32_t dev_time, uint32_t ns_time, uint8_t ns_time_fraq); // optional
 };
 
 struct radio_dev {

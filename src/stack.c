@@ -464,6 +464,9 @@ static void evt_handler(uint8_t evt_mask)
 
             pkt_params.inverted_iq = true;
             uw_radio->setup(&pkt_params);
+
+            // notify MAC that TX completed
+            mac_on_tx_complete();
         }
         break;
 
