@@ -24,3 +24,8 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: cmake --build ${{github.workspace}}/build --target coverage
+
+    - name: Build docs
+      uses: ammaraskar/sphinx-action@8.0.2
+      with:
+        docs-folder: "docs/"
