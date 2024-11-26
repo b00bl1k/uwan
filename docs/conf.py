@@ -7,7 +7,6 @@ author = "Alexey Ryabov"
 
 extensions = [
     "sphinx_c_autodoc",
-    "myst_parser",
 ]
 
 templates_path = ["_templates"]
