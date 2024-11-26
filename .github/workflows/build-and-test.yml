@@ -29,4 +29,4 @@ jobs:
       uses: ammaraskar/sphinx-action@8.0.2
       with:
         docs-folder: "docs/"
-        pre-build-command: "apt-get update -y && apt-get install -y clang"
+        pre-build-command: "apt-get update -y && apt-get install -y libclang-dev"
