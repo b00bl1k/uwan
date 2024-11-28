@@ -6,44 +6,45 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
-
-    - name: Install lcov
-      run: sudo apt-get install -y lcov
-
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_EXPORT_COMPILE_COMMANDS=1
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      run: cmake --build ${{github.workspace}}/build --target coverage
-
-    - name: Build docs
-      uses: ammaraskar/sphinx-action@8.0.2
-      with:
-        docs-folder: "docs/"
-        pre-build-command: "apt-get update -y && apt-get install -y libclang-dev"
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Install lcov
+        run: sudo apt-get install -y lcov
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_EXPORT_COMPILE_COMMANDS=1
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: cmake --build ${{github.workspace}}/build --target coverage
+      - name: Build docs
+        uses: ammaraskar/sphinx-action@8.0.2
+        with:
+          docs-folder: "docs/"
+          pre-build-command: "apt-get update -y && apt-get install -y libclang-dev"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: docs/_build/html
 
   deploy:
     environment: b00bl1k
     needs: build
     runs-on: ubuntu-latest
-
     steps:
-    - name: Rsync deployments
-      uses: burnett01/rsync-deployments@7.0.1
-      with:
-        switches: -avzr --delete
-        path: docs/_build/html
-        remote_path: ${{ secrets.DEPLOY_PATH }}
-        remote_host: ${{ secrets.DEPLOY_HOST }}
-        remote_port: ${{ secrets.DEPLOY_PORT }}
-        remote_user: ${{ secrets.DEPLOY_USER }}
-        remote_key: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs
+          path: docs/_build/html
+      - name: Rsync deployments
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --delete
+          path: docs/_build/html
+          remote_path: ${{ secrets.DEPLOY_PATH }}
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_port: ${{ secrets.DEPLOY_PORT }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_KEY }}
