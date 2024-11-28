@@ -1,4 +1,5 @@
 from clang.cindex import Config
+Config.set_library_file("libclang.so")
 
 project = "uWAN Documentation"
 copyright = "2024, Alexey Ryabov"
@@ -12,6 +13,10 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "alabaster"
+html_theme_options = {
+    "github_user": "b00bl1k",
+    "github_repo": "uwan",
+}
 html_static_path = ["_static"]
 
 todo_include_todos = True

@@ -30,3 +30,20 @@ jobs:
       with:
         docs-folder: "docs/"
         pre-build-command: "apt-get update -y && apt-get install -y libclang-dev"
+
+  deploy:
+    environment: b00bl1k
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Rsync deployments
+      uses: burnett01/rsync-deployments@7.0.1
+      with:
+        switches: -avzr --delete
+        path: docs/_build/html
+        remote_path: ${{ secrets.DEPLOY_PATH }}
+        remote_host: ${{ secrets.DEPLOY_HOST }}
+        remote_port: ${{ secrets.DEPLOY_PORT }}
+        remote_user: ${{ secrets.DEPLOY_USER }}
+        remote_key: ${{ secrets.DEPLOY_KEY }}
