@@ -1,5 +1,4 @@
 from clang.cindex import Config
-Config.set_library_file("libclang.so")
 
 project = "uWAN Documentation"
 copyright = "2024, Alexey Ryabov"
