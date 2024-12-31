@@ -1,2 +1,5 @@
+.cache/
 .vscode/
+.venv/
+docs/_build/
 build/

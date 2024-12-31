@@ -197,7 +197,8 @@ struct uwan_region {
  * \brief Initialize stack
  *
  * \param radio pointer to radio device (sx127x_dev or sx126x_dev)
- * \param stack pointer to hal for stack
+ * \param stack pointer to hal struct that contains pointers to application
+                specific funcs
  * \param region pointer to region struct (region_eu868 for example)
  */
 void uwan_init(const struct radio_dev *radio, const struct stack_hal *stack,
@@ -247,14 +248,6 @@ enum uwan_errs uwan_enable_channel(uint8_t index, bool enable);
  * \param frequency actual channel frequency in Hz
  */
 enum uwan_errs uwan_set_channel(uint8_t index, uint32_t frequency);
-
-/**
- * \brief Setup RX2 window
- *
- * \param frequency frequency in Hz
- * \param dr data rate
- */
-enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 
 /**
  * \brief Send join-request message
@@ -313,6 +306,14 @@ void uwan_set_max_eirp(int8_t max_eirp);
  * \param tx_power index of tx power, 0 equals max
  */
 bool uwan_set_tx_power(uint8_t tx_power);
+
+/**
+ * \brief Setup RX2 window
+ *
+ * \param frequency frequency in Hz
+ * \param dr data rate
+ */
+enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr);
 
 /**
  * \brief Set RX1 datarate offset

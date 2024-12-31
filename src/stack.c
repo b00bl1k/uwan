@@ -561,20 +561,6 @@ bool uwan_is_joined()
     return uw_session.is_joined;
 }
 
-enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
-{
-    if (!is_valid_dr(dr))
-        return UWAN_ERR_DATARATE;
-
-    if (!is_valid_frequency(frequency))
-        return UWAN_ERR_FREQUENCY;
-
-    uw_rx2_frequency = frequency;
-    uw_rx2_dr = dr;
-
-    return UWAN_ERR_NO;
-}
-
 enum uwan_errs uwan_join()
 {
     uint8_t offset = 0;
@@ -754,6 +740,20 @@ bool uwan_set_tx_power(uint8_t tx_power)
     }
 
     return false;
+}
+
+enum uwan_errs uwan_set_rx2(uint32_t frequency, enum uwan_dr dr)
+{
+    if (!is_valid_dr(dr))
+        return UWAN_ERR_DATARATE;
+
+    if (!is_valid_frequency(frequency))
+        return UWAN_ERR_FREQUENCY;
+
+    uw_rx2_frequency = frequency;
+    uw_rx2_dr = dr;
+
+    return UWAN_ERR_NO;
 }
 
 bool uwan_set_rx1_dr_offset(uint8_t rx1_dr_offset)

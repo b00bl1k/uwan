@@ -15,7 +15,7 @@ projects.
 To build the library, execute the following commands:
 
 ```bash
-git clone --recurse-submodules https://github.com/b00bl1k/uwan.git
+git clone https://github.com/b00bl1k/uwan.git
 cd uwan
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
