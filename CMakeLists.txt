@@ -39,7 +39,7 @@ if (${BUILD_TESTING})
     setup_target_for_coverage_lcov(
         NAME coverage
         EXECUTABLE ctest
-        EXCLUDE "tests/*" "vendor/*"
+        EXCLUDE "tests/*"
     )
 
     append_coverage_compiler_flags()
