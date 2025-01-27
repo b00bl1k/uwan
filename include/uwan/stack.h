@@ -94,6 +94,7 @@ enum uwan_errs {
     UWAN_ERR_RX_CRC,
     UWAN_ERR_MSG_LEN,
     UWAN_ERR_MSG_MHDR,
+    UWAN_ERR_MSG_FHDR,
     UWAN_ERR_MSG_MIC,
     UWAN_ERR_DEV_ADDR,
     UWAN_ERR_FCNT,

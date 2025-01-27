@@ -382,9 +382,7 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
 
     current_snr = pkt->snr;
 
-    if (f_opts_len > 0)
-        mac_handle_commands(buf + offset, f_opts_len);
-
+    uint8_t *fopts_buf = buf + offset;
     offset += f_opts_len;
 
     uint8_t *pld = NULL;
@@ -393,10 +391,13 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
         pkt->f_port = buf[offset++];
         pld = buf + offset;
         pld_size--;
+
+        if (f_opts_len && pkt->f_port == 0)
+            return UWAN_ERR_MSG_FHDR;
     }
 
     calc_mic(mic, buf, pkt->size - sizeof(mic), uw_session.nwk_s_key,
-         B0_DIR_DOWNLINK, true);
+        B0_DIR_DOWNLINK, true);
     if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
 
@@ -405,6 +406,11 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
         key = (pkt->f_port == 0) ? uw_session.nwk_s_key : uw_session.app_s_key;
         encrypt_payload(pld, pld_size, key, B0_DIR_DOWNLINK);
     }
+
+    if (f_opts_len > 0)
+        mac_handle_commands(fopts_buf, f_opts_len);
+    else if (pld_size && pkt->f_port == 0)
+        mac_handle_commands(pld, pld_size);
 
     adr_handle_downlink();
 
