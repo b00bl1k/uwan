@@ -283,6 +283,14 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 void uwan_timer_callback(enum uwan_timer_ids timer_id);
 
 /**
+ * \brief Get current fcnt
+ *
+ * \param f_cnt_up pointer to store fCnt up value
+ * \param f_cnt_down pointer to store fCnt down value
+ */
+void uwan_get_f_cnt(uint32_t *f_cnt_up, uint32_t *f_cnt_down);
+
+/**
  * \brief Set default datarate
  */
 void uwan_set_dr(enum uwan_dr dr);

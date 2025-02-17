@@ -717,6 +717,12 @@ void uwan_timer_callback(enum uwan_timer_ids timer_id)
     }
 }
 
+void uwan_get_f_cnt(uint32_t *f_cnt_up, uint32_t *f_cnt_down)
+{
+    *f_cnt_up = uw_session.f_cnt_up;
+    *f_cnt_down = uw_session.f_cnt_down;
+}
+
 void uwan_set_dr(enum uwan_dr dr)
 {
     if (is_valid_dr(dr))
