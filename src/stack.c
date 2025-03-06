@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <stddef.h>
 #include <string.h>
 
 #include <uwan/stack.h>
@@ -55,7 +54,6 @@
 #define MIC_LEN 4
 #define FRAME_MAX_SIZE 255
 #define RX_SYMB_TIMEOUT 0x08
-#define MAX_FCNT_GAP 16384
 
 #define FREQ_MIN 860000000
 #define FREQ_MAX 870000000
@@ -181,7 +179,7 @@ static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
 }
 
 static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
-    const uint8_t *key, uint8_t dir, bool b0)
+    const uint8_t *key, uint8_t dir, uint32_t f_cnt, bool b0)
 {
     uint8_t cmac_mic[UWAN_CMAC_DIGESTLEN];
 
@@ -190,7 +188,6 @@ static void calc_mic(uint8_t *mic, const uint8_t *msg, uint8_t msg_len,
     if (b0) {
         uint8_t block_b0[UWAN_AES_BLOCK_SIZE];
         uint8_t pos = 0;
-        uint32_t f_cnt = (dir) ? uw_session.f_cnt_down : uw_session.f_cnt_up;
 
         block_b0[pos++] = 0x49;
         block_b0[pos++] = 0x00;
@@ -269,7 +266,7 @@ static enum uwan_errs handle_join_msg(struct uwan_dl_packet *pkt)
     }
     uw_stack_hal->crypto_aes_delete_context(ctx);
 
-    calc_mic(mic, buf, pkt->size - sizeof(mic), uw_app_key, 0, false);
+    calc_mic(mic, buf, pkt->size - sizeof(mic), uw_app_key, 0, 0, false);
     if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
 
@@ -360,23 +357,24 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
     f_cnt = buf[offset++];
     f_cnt |= buf[offset++] << 8;
 
+    uint32_t new_f_cnt_down;
     if (uw_session.f_cnt_down == 0) {
         // accept initial value
-        uw_session.f_cnt_down = f_cnt;
+        new_f_cnt_down = f_cnt;
     }
     else {
         uint16_t f_cnt_prev = (uint16_t)uw_session.f_cnt_down;
-        uint16_t f_cnt_diff = f_cnt - f_cnt_prev;
+        int32_t f_cnt_diff = f_cnt - f_cnt_prev;
 
         if (f_cnt_diff == 0)
             return UWAN_ERR_FCNT;
 
-        if (f_cnt_diff <= MAX_FCNT_GAP)
-            uw_session.f_cnt_down += f_cnt_diff;
+        if (f_cnt_diff > 0)
+            new_f_cnt_down = uw_session.f_cnt_down + f_cnt_diff;
         else {
             // considering counter rollover
             uint32_t f_cnt_hi = uw_session.f_cnt_down & 0xffff0000;
-            uw_session.f_cnt_down = f_cnt_hi + 0x10000 + f_cnt;
+            new_f_cnt_down = f_cnt_hi + 0x10000 + f_cnt;
         }
     }
 
@@ -397,9 +395,11 @@ static enum uwan_errs handle_data_msg(struct uwan_dl_packet *pkt)
     }
 
     calc_mic(mic, buf, pkt->size - sizeof(mic), uw_session.nwk_s_key,
-        B0_DIR_DOWNLINK, true);
+        B0_DIR_DOWNLINK, new_f_cnt_down, true);
     if (memcmp(buf + pkt->size - sizeof(mic), mic, sizeof(mic)))
         return UWAN_ERR_MSG_MIC;
+
+    uw_session.f_cnt_down = new_f_cnt_down; // accept new value if mic is ok
 
     if (pld_size > 0) {
         const uint8_t *key;
@@ -600,7 +600,7 @@ enum uwan_errs uwan_join()
     uw_frame[offset++] = uw_dev_nonce & 0xff;
     uw_frame[offset++] = (uw_dev_nonce >> 8) & 0xff;
 
-    calc_mic(&uw_frame[offset], uw_frame, offset, uw_app_key, B0_DIR_UPLINK,
+    calc_mic(&uw_frame[offset], uw_frame, offset, uw_app_key, B0_DIR_UPLINK, 0,
         false);
     offset += 4;
 
@@ -692,7 +692,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
     }
 
     calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key,
-        B0_DIR_UPLINK, true);
+        B0_DIR_UPLINK, uw_session.f_cnt_up, true);
     offset += 4;
 
     uw_session.f_cnt_up++;
