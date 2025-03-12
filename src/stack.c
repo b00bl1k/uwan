@@ -602,7 +602,7 @@ enum uwan_errs uwan_join()
 
     calc_mic(&uw_frame[offset], uw_frame, offset, uw_app_key, B0_DIR_UPLINK, 0,
         false);
-    offset += 4;
+    offset += MIC_LEN;
 
     uw_rx1_delay = default_join_delay;
     uw_rx2_delay = default_join_delay + SECOND_RX_OFFSET;
@@ -693,7 +693,7 @@ enum uwan_errs uwan_send_frame(uint8_t f_port, const uint8_t *payload,
 
     calc_mic(&uw_frame[offset], uw_frame, offset, uw_session.nwk_s_key,
         B0_DIR_UPLINK, uw_session.f_cnt_up, true);
-    offset += 4;
+    offset += MIC_LEN;
 
     uw_session.f_cnt_up++;
 
