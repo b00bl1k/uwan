@@ -189,6 +189,8 @@ int main()
     assert(get_ptr_to_reg_value(SX127X_REG_LR_SYNC_WORD)[0] == 0x34);
     assert(get_ptr_to_reg_value(SX127X_REG_LR_INVERT_IQ)[0] == 0x27);
     assert(get_ptr_to_reg_value(SX127X_REG_LR_INVERT_IQ2)[0] == 0x1d);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_PREAMBLE_MSB)[0] == 0);
+    assert(get_ptr_to_reg_value(SX127X_REG_LR_PREAMBLE_LSB)[0] == 8);
     assert(get_ptr_to_reg_value(SX127X_REG_LR_PAYLOAD_LENGTH)[0] == sizeof(payload));
 
     return 0;

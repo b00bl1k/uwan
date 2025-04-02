@@ -320,6 +320,9 @@ static void sx127x_setup(const struct uwan_packet_params *params)
     bool low_dr_opti = (params->sf >= UWAN_SF_11);
     lora_set_modem_conf3(low_dr_opti, true);
 
+    write_reg(SX127X_REG_LR_PREAMBLE_MSB, params->preamble_len >> 8);
+    write_reg(SX127X_REG_LR_PREAMBLE_LSB, params->preamble_len & 0xff);
+
     set_inverted_iq(params->inverted_iq);
 
     if (hal->io_init)
