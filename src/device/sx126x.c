@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021-2023 Alexey Ryabov
+ * Copyright (c) 2021-2025 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,7 @@ static void sx126x_read_packet(struct uwan_dl_packet *pkt);
 static uint32_t sx126x_rand(void);
 static uint8_t sx126x_irq_handler(void);
 static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask));
+static uint32_t sx126x_get_tcxo_timeout(void);
 
 /* private pointer to actual HAL */
 static const struct radio_hal *hal;
@@ -66,6 +67,7 @@ const struct radio_dev sx126x_dev = {
     .rand = sx126x_rand,
     .irq_handler = sx126x_irq_handler,
     .set_evt_handler = sx126x_set_evt_handler,
+    .get_tcxo_timeout = sx126x_get_tcxo_timeout,
 };
 
 /* lookup table for spreading factor */
@@ -519,4 +521,9 @@ static uint8_t sx126x_irq_handler()
 static void sx126x_set_evt_handler(void (*handler)(uint8_t evt_mask))
 {
     user_evt_handler = handler;
+}
+
+static uint32_t sx126x_get_tcxo_timeout()
+{
+    return dev_opts->use_tcxo ? dev_opts->tcxo_timeout : 0;
 }

@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021-2024 Alexey Ryabov
+ * Copyright (c) 2021-2025 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -171,6 +171,7 @@ struct radio_dev {
     uint32_t (*rand)(void);
     uint8_t (*irq_handler)(void);
     void (*set_evt_handler)(void (*handler)(uint8_t evt_mask));
+    uint32_t (*get_tcxo_timeout)(void);
 };
 
 struct stack_hal {

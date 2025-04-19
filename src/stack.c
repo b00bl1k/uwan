@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021-2024 Alexey Ryabov
+ * Copyright (c) 2021-2025 Alexey Ryabov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -132,6 +132,15 @@ static enum uwan_dr get_current_dr(void)
         return uw_session.dr;
 
     return default_dr;
+}
+
+static uint32_t adjust_rx_delay(uint32_t rx_delay)
+{
+    uint32_t timeout;
+    timeout = uw_radio->get_tcxo_timeout ? uw_radio->get_tcxo_timeout() : 0;
+    if (rx_delay > timeout)
+        rx_delay -= timeout;
+    return rx_delay;
 }
 
 static void encrypt_payload(uint8_t *buf, uint8_t size, const uint8_t *key,
@@ -454,8 +463,10 @@ static void evt_handler(uint8_t evt_mask)
     case UWAN_STATE_TX:
         if (evt_mask & RADIO_IRQF_TX_DONE) {
             uw_state = UWAN_STATE_RX1;
-            uw_stack_hal->start_timer(UWAN_TIMER_RX1, uw_rx1_delay);
-            uw_stack_hal->start_timer(UWAN_TIMER_RX2, uw_rx2_delay);
+            uw_stack_hal->start_timer(UWAN_TIMER_RX1,
+                adjust_rx_delay(uw_rx1_delay));
+            uw_stack_hal->start_timer(UWAN_TIMER_RX2,
+                adjust_rx_delay(uw_rx2_delay));
 
             if (uw_rx1_offset) {
                 enum uwan_dr dr_id = get_current_dr();
