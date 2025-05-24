@@ -29,7 +29,7 @@ cmake --build build --target test
 
 Requirements:
 - C/C++ compiler
-- CMake 3.5 or higher
+- CMake 3.10 or higher
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
